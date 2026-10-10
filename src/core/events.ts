@@ -3,9 +3,9 @@ import type { Detail, EventType, LogData, LogEvent, SessionKind } from './types'
 export const SESSION_KINDS: readonly SessionKind[] = ['class', 'open-mat', 'drilling', 'comp'];
 export const isSession = (e: { type: EventType }): boolean => (SESSION_KINDS as readonly string[]).includes(e.type);
 /** Types that run from a start to an end (tap to start, tap to stop). */
-export const isTimedType = (t: EventType) => t !== 'promotion' && t !== 'focus' && t !== 'problem' && t !== 'technique';
+export const isTimedType = (t: EventType) => t !== 'promotion' && t !== 'focus' && t !== 'problem' && t !== 'technique' && t !== 'injury';
 /** Notebook entries (focuses and problems): not training, never on a timeline. */
-export const isNotebook = (e: { type: EventType }) => e.type === 'focus' || e.type === 'problem' || e.type === 'technique';
+export const isNotebook = (e: { type: EventType }) => e.type === 'focus' || e.type === 'problem' || e.type === 'technique' || e.type === 'injury';
 /** Running: timed, not ended, and not a finished entry logged with a length. */
 export const isOngoing = (e: LogEvent) => !e.deleted && isTimedType(e.type) && e.endAt === undefined && !e.detail?.min;
 

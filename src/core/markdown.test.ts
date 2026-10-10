@@ -145,3 +145,15 @@ Followed my plan: partly
     expect(back.rolls[0].detail).toMatchObject({ start: 'mount', role: 'bottom' });
   });
 });
+
+describe('injuries in notes', () => {
+  it('reads an Injury line and exports it under its session', () => {
+    const [s] = parseMarkdown('## Open mat 2026-10-08 10:00\nLength: 60m\nInjury: left knee (moderate): heel hook in round 3');
+    expect(s.injuries).toEqual([{ area: 'knee', side: 'left', severity: 'moderate', how: 'heel hook in round 3' }]);
+    const now = at(2026, 10, 9, 20);
+    const events = notesToEvents([s], now);
+    const inj = events.find((e) => e.type === 'injury')!;
+    expect(inj.detail!.injury).toMatchObject({ area: 'knee', side: 'left', sessionId: events[0].id });
+    expect(toMarkdown(events, '2026-10-08', '2026-10-08', now)).toContain('- Injury: Left knee (moderate): heel hook in round 3');
+  });
+});

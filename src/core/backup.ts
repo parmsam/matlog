@@ -1,6 +1,6 @@
 import type { EventType, LogData, LogEvent } from './types';
 
-const TYPES: ReadonlySet<EventType> = new Set(['class', 'open-mat', 'drilling', 'comp', 'roll', 'study', 'promotion', 'focus', 'problem', 'technique']);
+const TYPES: ReadonlySet<EventType> = new Set(['class', 'open-mat', 'drilling', 'comp', 'roll', 'study', 'promotion', 'focus', 'problem', 'technique', 'injury']);
 
 export interface Backup extends LogData {
   app: 'matlog';

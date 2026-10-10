@@ -4,6 +4,7 @@ import { createEvent, isSession, minutesOf } from './events';
 import { duration, dayTitle } from './format';
 import { kindById, type KindId } from './kinds';
 import { newProblem, problemsFor } from './notebook';
+import { injuryTitle, newInjury, parseArea } from './injuries';
 import { rollsIn } from './stats';
 import { BELTS, type Belt, type Detail, type LogEvent, type ProblemSource, type Role, type SessionKind, type Size } from './types';
 
@@ -56,6 +57,10 @@ export function sessionMarkdown(s: LogEvent, events: LogEvent[], now: number): s
   if (d.enjoy) out.push(`- Enjoyed: ${d.enjoy}/5`);
   if (d.plan) out.push(`- Followed my plan: ${d.plan}`);
   if (d.note) out.push(`- Note: ${d.note.replace(/\s+/g, ' ')}`);
+  for (const i of events.filter((e) => !e.deleted && e.type === 'injury' && e.detail?.injury?.sessionId === s.id)) {
+    const d = i.detail!.injury!;
+    out.push(`- Injury: ${injuryTitle(d)}${d.severity ? ` (${d.severity})` : ''}${d.how ? `: ${d.how}` : ''}`);
+  }
   for (const p of problemsFor(s.id, events)) {
     const pr = p.detail!.problem!;
     out.push(`- Problem: ${pr.text}${pr.solvedAt ? ' (solved)' : ''}`);
@@ -90,9 +95,17 @@ export interface ParsedProblem {
   source?: ProblemSource;
 }
 
+export interface ParsedInjury {
+  area: string;
+  side?: 'left' | 'right' | 'both';
+  severity?: 'minor' | 'moderate' | 'serious';
+  how?: string;
+}
+
 export interface ParsedSession {
   type: SessionKind | 'study';
   problems: ParsedProblem[];
+  injuries?: ParsedInjury[];
   /** Start time; null when the note didn't say (the caller picks one). */
   at: number | null;
   detail: Detail;
@@ -296,6 +309,12 @@ export function parseMarkdown(text: string): ParsedSession[] {
         if (v) s.problems.push({ text: v.replace(/\s*\(solved\)\s*$/i, ''), solved: /\(solved\)\s*$/i.test(v), source: 'internal' });
         continue;
       }
+      if (/^(injury|injured|hurt|tweaked)$/.test(key)) {
+        // "Left knee (moderate): heel hook in round 3"
+        const m = /^([^():]+?)\s*(?:\((minor|moderate|serious)\))?\s*(?::\s*(.+))?$/i.exec(v);
+        if (m) (s.injuries ??= []).push({ ...parseArea(m[1]), ...(m[2] ? { severity: m[2].toLowerCase() as ParsedInjury['severity'] } : {}), ...(m[3] ? { how: m[3].trim() } : {}) });
+        continue;
+      }
       if (/^(idea|idea to try|idea to try solution|solution|fix)$/.test(key)) {
         const last = s.problems[s.problems.length - 1];
         if (last && !last.idea) last.idea = v;
@@ -325,7 +344,7 @@ export function parseMarkdown(text: string): ParsedSession[] {
     if (n) s.detail.note = n.slice(0, 2000);
     // A date heading without a "Date:" line ("## Class 2026-10-08 18:00") was read above.
   }
-  return out.filter((s) => s.at !== null || Object.keys(s.detail).length || s.rolls.length || s.problems.length);
+  return out.filter((s) => s.at !== null || Object.keys(s.detail).length || s.rolls.length || s.problems.length || s.injuries?.length);
 }
 
 /**
@@ -339,6 +358,7 @@ export function notesToEvents(parsed: ParsedSession[], now: number, defaultMin =
     const at = p.at ?? now - min * MIN;
     const session = createEvent(p.type, at, { ...p.detail, min }, now);
     out.push(session);
+    for (const inj of p.injuries ?? []) out.push(newInjury(Math.min(at + min * MIN, now), { ...inj, sessionId: session.id }, now));
     for (const pr of p.problems) out.push(newProblem(pr.text, now, { idea: pr.idea, source: pr.source, sessionId: session.id, solvedAt: pr.solved ? now : undefined }));
     let t = at + 60_000;
     for (const r of p.rolls) {

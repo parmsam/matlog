@@ -44,6 +44,8 @@ When you control the page (Playwright `page.evaluate`, DevTools, a browser agent
 - `matlog.focus(text?, opts?)`: focuses, running first, each with `{ text, role, state: 'active'|'over'|'resting'|'done', week, weeks, blocks, ifWorks, ifFails, tracking, thisBlock }`. With text, adds one: opts `{ role: 'main'|'complement'|'habit'|'experiment'|'side', blockDays: 7|14, ifWorks, ifFails, target }`. Only add one when the person asks
 - `matlog.problems(text?, opts?)`: `{ open, solved }`. With text, logs a problem: opts `{ source: 'internal'|'external'|'predictive', idea }`
 - `matlog.solve(id)`: mark a problem solved
+- `matlog.injuries(area?, opts?)`: `{ active, healed, note }`, each `{ id, what, severity, since, days, how, trainingAround, updates, healed }`. With an area (`'left knee'`, `'low back'`), logs one: opts `{ severity: 'minor'|'moderate'|'serious', how, around, daysAgo }`
+- `matlog.heal(id)`: mark an injury healed
 
 ## Class note format
 
@@ -57,7 +59,7 @@ Anything else is the note.
 - Sam (purple, bigger, 6m): hit armbar; tapped to triangle; landed knee cut; tried berimbolo; stuck in half guard
 ```
 
-A heading naming a session (class, open mat, drilling, comp) starts one; a "Rolls" heading lists rounds. Keys: Date, Length, Gi, Techniques, Note, Type. Plain text with no headings is one class.
+A heading naming a session (class, open mat, drilling, comp, study) starts one; a "Rolls" heading lists rounds. Keys: Date, Length, Gi, Techniques, Note, Type, Enjoyed, Followed my plan, Problem I hit today, Idea to try, Injury (`left knee (minor): heel hook`). Plain text with no headings is one class.
 
 ## Common agent recipes
 
@@ -73,6 +75,8 @@ A heading naming a session (class, open mat, drilling, comp) starts one; a "Roll
   `matlog.focus('knee cut', { role: 'main', blockDays: 14 })`; later `matlog.focus()[0].thisBlock`.
 - I keep getting flattened in half guard
   `matlog.problems('getting flattened in half guard', { source: 'internal' })`; `matlog.solve(id)` once it's solved.
+- I tweaked my left knee at open mat
+  `matlog.injuries('left knee', { severity: 'minor', how: 'open mat', around: 'no leg locks' })`; `matlog.heal(id)` later. Report what was logged; never give medical advice.
 - How many mat hours do I have?
   `matlog.state().matHours`.
 - What do I get stuck in, and what do I tap to?

@@ -18,6 +18,7 @@ import { applyTheme } from './ui/theme';
 import { mountBanner, showBanner } from './ui/banner';
 import { openClock } from './ui/roundClock';
 import { openProblems } from './ui/problemsView';
+import { openInjuries } from './ui/injuriesView';
 import { onLadder } from './ui/focusView';
 import { companionSay } from './ui/companion';
 import { setCustomTechniques } from './core/catalog';
@@ -46,6 +47,7 @@ document.getElementById('settings-open')!.addEventListener('click', openSettings
 document.getElementById('progress-open')!.addEventListener('click', openProgress);
 document.getElementById('tech-open')!.addEventListener('click', () => openTech());
 document.getElementById('clock-open')!.addEventListener('click', openClock);
+document.getElementById('injury-line')!.addEventListener('click', () => openInjuries());
 document.getElementById('companion')!.addEventListener('click', companionSay);
 onLadder((id) => openTech(id));
 document.getElementById('paste-open')!.addEventListener('click', () => openPaste());
@@ -115,6 +117,7 @@ document.addEventListener('keydown', (e) => {
   else if (key === 'f') openFocus();
   else if (key === 'k') openClock();
   else if (key === 'b') openProblems();
+  else if (key === 'i') openInjuries();
   else if (key === 'm') void copyWeek();
   else if (key === 'u') {
     if (!undoLast()) toast('Nothing to undo');

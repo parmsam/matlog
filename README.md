@@ -24,6 +24,7 @@ matlog is a sibling of [tinylog](https://github.com/parmsam/tinylog) and uses th
 - **Focus blocks.** Say what you're working on, a few connected skills at a time: a main skill, a complementary one, a habit, an experiment, a side project. Work each in a 1- or 2-week block, then rest it, go again, or call it done. Write where you go if it works and if it fails, and an optional reps target ("1 of 2 reps today"). When a focus names a technique, position or submission, matlog counts what happens in each block, so after a break you can see what stuck. You pick them; matlog never will.
 - **Problems.** Find a problem, write an idea to try, mark it solved. Note whether someone told you, you noticed it, or you see it coming, and whether you tinkered before looking it up.
 - **Reflect later.** A while after a session (two hours by default), a prompt opens a five-minute notebook: the current block, a problem you hit, an idea to try, and a check-in on whether you enjoyed it and followed your plan. Starting a session shows today's focus in the toast, like glancing at a notebook before rounds.
+- **Injury log.** What got hurt (area and side), how bad in your own words, how it happened, what you're doing differently while it heals ("no leg locks, gi only"), dated updates, and when it healed. Log one from a round's sheet ("Got hurt?") or while reflecting, and it's linked to that round. While one is active, the home screen shows a quiet "🩹 Left knee · 12 days" and your buddy wears a small bandage. A record of what you logged, never medical advice.
 - **Skill ladder.** For any technique: landed / tried against lighter, same-size and heavier partners, and lower, same and higher belts than yours at the time.
 - **Paste a class note.** Paste Markdown or plain text from your notes app and it becomes a session with its rounds. You see a preview before anything is saved.
 
@@ -43,6 +44,7 @@ matlog is a sibling of [tinylog](https://github.com/parmsam/tinylog) and uses th
 - **Moves in rounds**: each sweep, pass or takedown you went for, and how often it landed.
 - **Where you got stuck**, ranked.
 - **Belt and stripe timeline**, with the mat hours between each promotion.
+- **Injuries**: by area, days with one active this year, sessions trained around one, and how long they took to heal (median).
 - **How sessions felt**: enjoyment by month and how often you followed your plan, from your own check-ins. **Focus blocks** over the last six months, and **positional rounds** by starting position.
 - **Patterns, never advice.** "You noted getting stuck in half guard most: 14 rolls." Each pattern says what it's based on and stays hidden until there's enough data. matlog won't tell you what to drill.
 
@@ -102,7 +104,7 @@ Press <kbd>?</kbd> in the app to see them all.
 | <kbd>C</kbd> <kbd>O</kbd> <kbd>D</kbd> <kbd>P</kbd> <kbd>R</kbd> | Start / stop class, open mat, drilling, comp, round (with <kbd>Shift</kbd>: log a finished one) |
 | <kbd>U</kbd> | Undo |
 | <kbd>G</kbd> <kbd>T</kbd> <kbd>V</kbd> | Progress, technique library, paste a class note |
-| <kbd>F</kbd> <kbd>B</kbd> <kbd>K</kbd> | Working on (focus blocks), problems, round clock |
+| <kbd>F</kbd> <kbd>B</kbd> <kbd>I</kbd> <kbd>K</kbd> | Working on (focus blocks), problems, injury log, round clock |
 | <kbd>S</kbd> | Start / stop study |
 | <kbd>M</kbd> | Copy the last 7 days as Markdown |
 | <kbd>,</kbd> | Settings |
@@ -141,7 +143,7 @@ Good rounds, cardio was rough.
 - Jo (white): hit rnc; landed knee cut; tried berimbolo
 ```
 
-A heading that names a session (class, open mat, drilling, comp, study) starts one, and a "Rolls" heading lists rounds. The notebook keys work too: `Problem I hit today:`, `Idea to try / solution:`, `Enjoyed: 4`, `Followed my plan: partly`. Common names are recognised ("knee slice" is a knee cut, "rear naked" is an RNC); anything else is kept as you typed it. Export writes the same format, so a copied week pastes back in cleanly.
+A heading that names a session (class, open mat, drilling, comp, study) starts one, and a "Rolls" heading lists rounds. The notebook keys work too: `Problem I hit today:`, `Idea to try / solution:`, `Enjoyed: 4`, `Followed my plan: partly`, and `Injury: left knee (minor): heel hook`. Common names are recognised ("knee slice" is a knee cut, "rear naked" is an RNC); anything else is kept as you typed it. Export writes the same format, so a copied week pastes back in cleanly.
 
 ## Privacy
 

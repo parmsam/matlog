@@ -4,7 +4,7 @@
  * it all merges, backs up and undoes the same way.
  */
 export type SessionKind = 'class' | 'open-mat' | 'drilling' | 'comp';
-export type EventType = SessionKind | 'roll' | 'study' | 'promotion' | 'focus' | 'problem' | 'technique';
+export type EventType = SessionKind | 'roll' | 'study' | 'promotion' | 'focus' | 'problem' | 'technique' | 'injury';
 
 export type Belt = 'white' | 'blue' | 'purple' | 'brown' | 'black';
 export const BELTS: Belt[] = ['white', 'blue', 'purple', 'brown', 'black'];
@@ -57,6 +57,9 @@ export interface Detail {
   // Your own technique (Technique library)
   technique?: CustomTechnique;
 
+  // Injury log
+  injury?: InjuryDetail;
+
   // Notebook
   focus?: FocusDetail;
   problem?: ProblemDetail;
@@ -102,6 +105,27 @@ export interface CustomTechnique {
   from: string;
   to: string;
   aka?: string[];
+}
+
+export type InjurySide = 'left' | 'right' | 'both';
+/** Your own call, not a diagnosis. */
+export type InjurySeverity = 'minor' | 'moderate' | 'serious';
+
+export interface InjuryDetail {
+  /** Body area id (see core/injuries.ts AREAS), or free text. */
+  area: string;
+  side?: InjurySide;
+  severity?: InjurySeverity;
+  /** How it happened ("heel hook in round 3"). */
+  how?: string;
+  /** What you're doing differently while it heals ("no leg locks, gi only"). */
+  around?: string;
+  /** Dated notes as it heals. */
+  updates?: { at: number; text: string }[];
+  healedAt?: number;
+  /** The session or round it happened in, if any. */
+  sessionId?: string;
+  rollId?: string;
 }
 
 export type ProblemSource = 'external' | 'internal' | 'predictive';

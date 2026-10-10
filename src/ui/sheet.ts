@@ -11,6 +11,7 @@ import { BELT_LABEL, esc, openDialog, sheetHead } from './dom';
 import { requestPersistence } from './persist';
 import { toast, type ToastAction } from './toast';
 import { openReflect } from './reflectView';
+import { openInjuries } from './injuriesView';
 
 export interface SheetOpts {
   /** Edit this event. */
@@ -202,6 +203,7 @@ function render(focusTags?: string) {
     ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ''}
     <div class="actions">
       ${existing ? '<button type="button" class="btn danger" data-delete>Delete</button>' : ''}
+      ${existing && (sessionLike(existing.type) || existing.type === 'roll') ? '<button type="button" class="btn" data-hurt>🩹 Got hurt?</button>' : ''}
       ${existing && sessionLike(existing.type) && !draft.running ? `<button type="button" class="btn" data-reflect-session>📓 ${existing.detail?.reflectedAt ? 'Reflect again' : 'Reflect'}</button>` : ''}
       <span class="spacer"></span>
       <button type="button" class="btn" data-close>Cancel</button>
@@ -241,8 +243,15 @@ function wire() {
   if (d.dataset.sheetWired) return;
   d.dataset.sheetWired = '1';
   d.addEventListener('click', (e) => {
-    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-pick], [data-tag], [data-untag], [data-delete], [data-add-round], [data-edit-round], [data-reflect-session]');
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-pick], [data-tag], [data-untag], [data-delete], [data-add-round], [data-edit-round], [data-reflect-session], [data-hurt]');
     if (!el) return;
+    if (el.dataset.hurt !== undefined) {
+      // Opens on top of this sheet, prefilled with when and where; closing it comes back here.
+      const ev = existing!;
+      const session = ev.type === 'roll' ? app.get().events.find((s) => isSession(s) && !s.deleted && rollsIn(s, app.get().events, Date.now()).some((r) => r.id === ev.id)) : ev;
+      const who = ev.type === 'roll' && draft.detail.partner ? `rolling with ${draft.detail.partner}` : '';
+      return openInjuries({ log: { at: ev.at, sessionId: session?.id, rollId: ev.type === 'roll' ? ev.id : undefined, how: who } });
+    }
     if (el.dataset.delete !== undefined) return remove();
     if (el.dataset.reflectSession !== undefined) {
       const id = existing!.id;

@@ -10,6 +10,7 @@ import type { LogEvent, PlanFollowed, ProblemSource } from '../core/types';
 import { companionReact } from './companion';
 import { esc, openDialog, sheetHead } from './dom';
 import { toast } from './toast';
+import { openInjuries } from './injuriesView';
 
 /**
  * The notebook, a while after training: "a problem I hit, an idea to try", the current block, and
@@ -51,6 +52,7 @@ function render() {
       <fieldset class="field"><legend>Enjoyed it</legend><div class="picks">${FACES.map((f, i) => `<button type="button" class="pick face" data-enjoy="${i + 1}" aria-pressed="${state.enjoy === i + 1}" aria-label="${i + 1} of 5">${f}</button>`).join('')}</div></fieldset>
       <fieldset class="field"><legend>Followed my plan</legend><div class="picks">${(['yes', 'partly', 'no'] as const).map((p) => `<button type="button" class="pick" data-plan="${p}" aria-pressed="${state.plan === p}">${p[0].toUpperCase() + p.slice(1)}</button>`).join('')}</div></fieldset>
     </div>
+    <p><button type="button" class="chip" data-hurt>🩹 Anything hurt? Log an injury</button></p>
     <label class="field"><span class="field-label">Note</span><textarea data-note rows="2" placeholder="optional">${esc(s.detail?.note ?? '')}</textarea></label>
     <div class="actions"><button type="button" class="btn" data-skip>Not now</button><span class="spacer"></span><button type="submit" class="btn primary">Save</button></div>
   </form></div>`;
@@ -102,6 +104,7 @@ export function openReflect(s: LogEvent) {
         d.querySelectorAll<HTMLElement>('[data-plan]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.plan === state.plan)));
         d.querySelectorAll<HTMLElement>('[data-source]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.source === state.source)));
       };
+      if (ds.hurt !== undefined) return openInjuries({ log: { at: session.at, sessionId: session.id } });
       if (ds.enjoy) set(() => (state.enjoy = state.enjoy === Number(ds.enjoy) ? undefined : Number(ds.enjoy)));
       else if (ds.plan) set(() => (state.plan = state.plan === ds.plan ? undefined : (ds.plan as PlanFollowed)));
       else if (ds.source) set(() => (state.source = ds.source as ProblemSource));

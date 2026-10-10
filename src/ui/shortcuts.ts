@@ -8,6 +8,7 @@ export function openShortcuts() {
     ${KINDS.map((k) => row([k.key.toUpperCase()], `Start / stop ${k.label.toLowerCase()} (Shift: log a finished one)`)).join('')}
     ${row(['K'], 'Round clock')}
     ${row(['B'], 'Problems')}
+    ${row(['I'], 'Injury log')}
     ${row(['U'], 'Undo')}
     ${row(['F'], 'Working on (focus blocks)')}
     ${row(['G'], 'Progress')}

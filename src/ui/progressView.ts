@@ -7,6 +7,8 @@ import { heatmapSvg } from '../viz/heatmap';
 import { blocksSvg } from '../viz/blocks';
 import { focuses } from '../core/focus';
 import { processStats } from '../core/notebook';
+import { injuryStats } from '../core/injuries';
+import { openInjuries } from './injuriesView';
 import { openProblems } from './problemsView';
 import { patchSvg } from '../viz/patch';
 import { BELT_LABEL, beltSwatch, copyText, esc, openDialog, sheetHead } from './dom';
@@ -43,6 +45,7 @@ function render() {
   const proc = processStats(events);
   const fv = focuses(events, now);
   const pos = positionalStats(events);
+  const inj = injuryStats(events, now);
   const moveRounds = events.filter((e) => !e.deleted && e.type === 'roll' && (e.detail?.landed?.length || e.detail?.tried?.length)).length;
 
   const ratio =
@@ -138,6 +141,16 @@ function render() {
       ${pos.positional ? `<p class="basis">${pos.positional} of ${plural(pos.rolls, 'round')} started from a position${pos.badSpots ? `, ${pos.badSpots} from a bad spot (bottom of a pin, or turtle)` : ''}.</p>${bars(pos.byStart, 'var(--k-roll)', '', 8)}` : '<p class="empty">Note where a round started (Started from) to see positional rounds here.</p>'}
     </section>
 
+    <section class="block"><h3>Injuries</h3>
+      ${inj.total ? `<div class="tiles">
+        <div class="tile"><div class="v">${inj.active}</div><div class="k">active now</div></div>
+        <div class="tile"><div class="v">${inj.daysThisYear}</div><div class="k">days with one this year</div></div>
+        <div class="tile"><div class="v">${inj.sessionsWhileInjured}</div><div class="k">sessions trained around one</div></div>
+        ${inj.medianDays !== null ? `<div class="tile"><div class="v">${inj.medianDays}</div><div class="k">days to heal, typically (median)</div></div>` : ''}
+      </div>${bars(inj.byArea.map((a) => ({ id: a.area, label: a.label, n: a.n })), 'var(--k-comp)', '', 8)}` : '<p class="empty">No injuries logged. Here’s hoping it stays that way.</p>'}
+      <p class="basis">From what you logged; not medical advice. <button type="button" class="chip" data-injuries>Injury log</button></p>
+    </section>
+
     <section class="block"><h3>Patterns</h3>
       ${pats.length ? `<ul class="patterns">${pats.map((p) => `<li>${esc(p.text)}<small>Based on ${esc(p.basis)}.</small></li>`).join('')}</ul>` : '<p class="empty">Patterns show up after a few sessions and rounds. They describe your log; they never tell you what to do.</p>'}
     </section>
@@ -171,6 +184,11 @@ export function openProgress() {
         const from = copy === 'all' ? first : addDays(today, -(Number(copy) - 1));
         const ok = await copyText(toMarkdown(app.get().events, from, today, now, settings.get().name));
         toast(ok ? 'Copied as Markdown' : "Couldn't copy");
+        return;
+      }
+      if (el.closest('[data-injuries]')) {
+        d.close();
+        openInjuries();
         return;
       }
       if (el.closest('[data-problems]')) {

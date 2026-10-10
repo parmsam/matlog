@@ -1,4 +1,5 @@
 import { dayKey } from '../core/days';
+import { injuries } from '../core/injuries';
 import { isSession } from '../core/events';
 import { app, settings } from '../core/log';
 import { currentRank, matMinutes, PATCHES } from '../core/stats';
@@ -109,7 +110,7 @@ export function buddyFor(choice: string, day: string): BuddyId {
   return ids[h % ids.length];
 }
 
-export function buddySvg(id: BuddyId, belt: Belt, stripes: number, patchColors: string[]): string {
+export function buddySvg(id: BuddyId, belt: Belt, stripes: number, patchColors: string[], injured = false): string {
   const c = BUDDIES[id];
   const bar = belt === 'black' ? 'var(--k-comp)' : 'var(--belt-black)';
   const barX = 58;
@@ -145,6 +146,7 @@ export function buddySvg(id: BuddyId, belt: Belt, stripes: number, patchColors: 
       <path class="mouth calm" d="M46 ${mouthY} Q50 ${mouthY + 3} 54 ${mouthY}" />
       <path class="mouth happy" d="M44.5 ${mouthY - 1} Q50 ${mouthY + 7} 55.5 ${mouthY - 1} Z" fill="var(--ink)" />
       <path class="sweat" d="M73 22 q3 5 0 7 q-3 -2 0 -7 Z" />
+      ${injured ? '<g class="bandage" transform="rotate(-24 61 25)"><rect x="54" y="22" width="14" height="6" rx="2.5" fill="#f2d2a9" stroke="var(--ink)" stroke-width="1.2" /><rect x="59" y="22.6" width="4" height="4.8" fill="#e5bb88" /></g>' : ''}
     </g>
   </svg>`;
 }
@@ -159,9 +161,11 @@ export function renderCompanion(now = Date.now()) {
   const rank = currentRank(events, prefs, now);
   const minutes = matMinutes(events, now);
   const colors = PATCHES.filter((p) => prefs.patches.includes(p.id) && minutes >= p.hours * 60).map((p) => p.color);
-  const key = `${id}${rank.belt}${rank.stripes}${colors.join()}`;
+  // A small bandage while an injury is logged as active. Decoration, never a status.
+  const injured = injuries(events, now).active.length > 0;
+  const key = `${id}${rank.belt}${rank.stripes}${colors.join()}${injured}`;
   if (key !== drawnKey) {
-    el.innerHTML = buddySvg(id, rank.belt, rank.stripes, colors);
+    el.innerHTML = buddySvg(id, rank.belt, rank.stripes, colors, injured);
     drawnKey = key;
   }
   const training = events.some((e) => !e.deleted && (isSession(e) || e.type === 'roll') && e.endAt === undefined && !e.detail?.min);

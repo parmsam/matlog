@@ -9,6 +9,7 @@ import type { LogEvent } from '../core/types';
 import { holdKind, tapKind } from './actions';
 import { BELT_LABEL, beltSwatch, esc } from './dom';
 import { renderFocusCard } from './focusView';
+import { injuryLine } from './injuriesView';
 import { openSheet } from './sheet';
 
 const HOLD_MS = 450;
@@ -85,6 +86,10 @@ export function renderHero(now: number) {
   const hEl = document.getElementById('hours')!;
   if (hEl.textContent !== hoursText) hEl.textContent = hoursText;
   renderFocusCard(now);
+  const inj = document.getElementById('injury-line')!;
+  const line = injuryLine(now);
+  if (inj.textContent !== line) inj.textContent = line;
+  inj.hidden = !line;
 }
 
 function rollRow(r: LogEvent, now: number): string {

@@ -29,6 +29,7 @@ BJJ training journal: one-tap logging of sessions and rounds, plus descriptive v
 - **Nothing is lost**: no streaks or anything that can be broken. Rewards are cumulative.
 - **Buddies** share one rig in `src/ui/companion.ts` (body, sleeves and hands, belt and knot, eyes, two mouths). A new character only adds colors, a head and optional `back` extras, so reactions, stripes and patches keep working. Never add a sad or disappointed state.
 - **Focuses and problems** are the person's own words, stored as `focus` / `problem` events (`core/focus.ts`, `core/notebook.ts`). Quick fills come from their log; never suggest or auto-set a focus or problem (agents included). Prompts may be questions; never verdicts, scores or "you should".
+- **Injuries** (`core/injuries.ts`) are a record only: no diagnoses, rest advice, return-to-training dates or treatment suggestions anywhere (UI, patterns, API, agents). Severity is the person's call.
 - **Your own techniques** are `technique` events; `core/catalog.ts` sees them through `setCustomTechniques` (kept in step with the log in `main.ts`). Look techniques up through the catalog functions, never `TECHNIQUES` directly, unless you mean the built-in list.
 - **Charts** need a text equivalent (a table or list) and `title`/`aria-label` on marks.
 - **Motion**: respect `prefers-reduced-motion`. Never use pixel `transform-origin` on SVG; use `transform-box: fill-box`.

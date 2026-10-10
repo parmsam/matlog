@@ -11,6 +11,7 @@ import type { LogEvent } from '../core/types';
 import { logMarkdown } from './pasteView';
 import { focuses, focusProgress, matchFocus, newFocus, roleLabel } from '../core/focus';
 import { newProblem, problems } from '../core/notebook';
+import { injuries, injuryDays, injuryTitle, newInjury, parseArea } from '../core/injuries';
 import { addEvent, updateEvent } from '../core/log';
 import type { FocusRole, ProblemSource } from '../core/types';
 import { undoLast } from './toast';
@@ -123,6 +124,7 @@ export const RECIPES: { ask: string; code: string; note: string }[] = [
   { ask: 'What do I get stuck in, and what do I tap to?', code: 'matlog.stats()', note: 'Counts and ratios. patterns() has plain sentences with what each is based on. Descriptive, never advice.' },
   { ask: "I'm working on my knee cut for the next two weeks", code: "matlog.focus('knee cut', { role: 'main', blockDays: 14 })", note: 'Shown on the home screen. matlog.focus() reports each focus and what happened this block. Never add one the person did not ask for.' },
   { ask: 'I keep getting flattened in half guard', code: "matlog.problems('getting flattened in half guard', { source: 'internal' })", note: 'matlog.problems() lists open and solved ones; matlog.solve(id) marks one solved.' },
+  { ask: 'I tweaked my left knee at open mat, no leg locks for a while', code: "matlog.injuries('left knee', { severity: 'minor', how: 'open mat', around: 'no leg locks' })", note: 'matlog.heal(id) when it has healed. Report what was logged; never give medical advice.' },
   { ask: 'Log this class note', code: 'matlog.importMarkdown(text)', note: 'Same format as the Paste dialog and markdown() output.' },
 ];
 
@@ -152,6 +154,9 @@ matlog.focus(text?, opts?)     focuses (blocks, what happened this block); with 
                                { role: 'main'|'complement'|'habit'|'experiment'|'side', blockDays: 7|14, ifWorks, ifFails, target }
 matlog.problems(text?, opts?)  open and solved problems; with text, logs one { source: 'internal'|'external'|'predictive', idea }
 matlog.solve(id)               mark a problem solved
+matlog.injuries(area?, opts?)  active and healed injuries; with an area ("left knee"), logs one:
+                               { severity: 'minor'|'moderate'|'serious', how, around, daysAgo }  (a record, not medical advice)
+matlog.heal(id)                mark an injury healed
 
 Common requests:
 ${RECIPES.map((r) => `- ${r.ask}\n    ${r.code}\n    ${r.note}`).join('\n')}`;
@@ -180,6 +185,7 @@ export function createAgentApi() {
           .filter((v) => v.state === 'active' || v.state === 'over')
           .map((v) => ({ text: v.f.text, role: roleLabel(v.f.role), week: v.week, weeks: v.weeks, blockOver: v.state === 'over' })),
         openProblems: problems(events).open.length,
+        activeInjuries: injuries(events, now).active.map((e) => ({ what: injuryTitle(e.detail!.injury!), days: injuryDays(e, now) })),
         last7Days: { sessions: r.sessions, minutes: r.minutes, rounds: r.rolls, subsFor: r.subsFor, subsAgainst: r.subsAgainst, techniques: r.techniques },
       };
     },
@@ -262,6 +268,29 @@ export function createAgentApi() {
       const p = problems(app.get().events);
       const row = (e: LogEvent) => ({ id: e.id, text: e.detail!.problem!.text, idea: e.detail!.problem!.idea ?? null, source: e.detail!.problem!.source ?? null, logged: iso(e.at), solved: e.detail!.problem!.solvedAt ? iso(e.detail!.problem!.solvedAt) : null });
       return { open: p.open.map(row), solved: p.solved.map(row) };
+    },
+    /** Active and healed injuries. With an area ("left knee"), logs one. A record, never medical advice. */
+    injuries(area?: string, opts: { severity?: 'minor' | 'moderate' | 'serious'; how?: string; around?: string; daysAgo?: number } = {}) {
+      const now = Date.now();
+      if (area !== undefined) {
+        if (typeof area !== 'string' || !area.trim()) throw new Error('matlog: area is text, e.g. "left knee"');
+        if (opts.severity && !['minor', 'moderate', 'serious'].includes(opts.severity)) throw new Error('matlog: severity is minor, moderate or serious');
+        const days = Math.max(0, Math.round(opts.daysAgo ?? 0));
+        addEvent(newInjury(now - days * 86_400_000, { ...parseArea(area), severity: opts.severity, how: opts.how, around: opts.around }, now));
+      }
+      const { active, healed } = injuries(app.get().events, now);
+      const row = (e: LogEvent) => {
+        const d = e.detail!.injury!;
+        return { id: e.id, what: injuryTitle(d), severity: d.severity ?? null, since: iso(e.at), days: injuryDays(e, now), how: d.how ?? null, trainingAround: d.around ?? null, updates: (d.updates ?? []).map((u) => ({ at: iso(u.at), text: u.text })), healed: d.healedAt ? iso(d.healedAt) : null };
+      };
+      return { active: active.map(row), healed: healed.map(row), note: 'A record of what was logged; not medical advice.' };
+    },
+    /** Marks an injury healed (by id from injuries()). */
+    heal(id: string) {
+      const e = app.get().events.find((x) => x.id === id && x.type === 'injury' && !x.deleted);
+      if (!e) throw new Error('matlog: no injury with that id (see matlog.injuries())');
+      updateEvent(id, { detail: { ...e.detail, injury: { ...e.detail!.injury!, healedAt: Date.now() } } });
+      return this.injuries();
     },
     /** Marks a problem solved (by id from problems()). */
     solve(id: string) {
