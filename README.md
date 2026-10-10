@@ -17,7 +17,7 @@ matlog is a sibling of [tinylog](https://github.com/parmsam/tinylog) and uses th
 **Logging**
 - **One tap.** Class, Open mat, Drilling, Comp and Round (plus Study, off by default). Tap to start, tap to stop. Timers are timestamps, so they keep going through reloads, a locked phone or a closed tab. Starting open mat while class runs switches it instead of starting a second session.
 - **Logging late is normal.** Every log shows **Undo**, **−5m / −15m / −30m** and **Details**. Hold a card to log one you already did, with its length (1 hour for a class by default). Classes start on the hour by default, and the toast always offers the exact time.
-- **Open mat flow.** Rounds belong to the session they happen in (class, open mat, drilling, or a comp, where they're matches). A round started on its own offers to start open mat; saving one offers **Next round**; a session's sheet lists its rounds with **+ Add a round**. The **round clock** (<kbd>K</kbd>) is a full-screen gym timer with round and rest lengths that buzzes at time and keeps the screen awake.
+- **Open mat flow.** Rounds belong to the session they happen in (class, open mat, drilling, or a comp, where they're matches): a round started during a session or added from its sheet stays with it even if you change its times, and one logged afterwards joins the session it falls in (or ended up to 10 minutes before). A round started on its own offers to start open mat; saving one offers **Next round**; a session's sheet lists its rounds with **+ Add a round**. The **round clock** (<kbd>K</kbd>) is a full-screen gym timer with round and rest lengths that buzzes at time and keeps the screen awake.
 - **Round log.** Stopping a round asks who you rolled with (partner, belt, size), where it started (positional rounds, top or bottom), subs you hit, what you tapped to, **moves you landed and moves you went for** (sweeps, passes, takedowns, back takes), and where you got stuck. Every field is optional and one tap away.
 
 **Train with intention**
@@ -29,6 +29,7 @@ matlog is a sibling of [tinylog](https://github.com/parmsam/tinylog) and uses th
 - **Paste a class note.** Paste Markdown or plain text from your notes app and it becomes a session with its rounds. You see a preview before anything is saved.
 
 **Technique library**
+- **Notes on any technique**: key details (pinned to the top), observations, questions and sources with a link, plus what your sessions and problems already say about it.
 - Tag techniques per session from a built-in list of about 60 (takedowns, sweeps, passes, escapes, submissions), or type your own. **Add your own techniques** with a type and where they start and end, and they join the suggestions, the position graph and the skill ladder; anything already logged under that name links up.
 - **Last drilled or tried**: every technique, how many sessions you drilled it, and **landed X of Y** in rounds.
 - **Position graph**: standing → guard → passing → mount/back → submission, drawn only from techniques you've drilled or landed. Thicker lines mean more sessions, and a dashed outline marks positions you've noted getting stuck in.

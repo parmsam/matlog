@@ -1,4 +1,4 @@
-import { card, ev, expect, MIN, open, storedEvents, test, toastEl } from './helpers';
+import { card, ev, expect, MIN, open, storedEvents, test, toastEl, unfold } from './helpers';
 
 test('tap starts a class, the timer survives a reload, tap stops it', async ({ page }) => {
   await open(page);
@@ -69,6 +69,7 @@ test('stopping a round asks how it went', async ({ page }) => {
   await sheet.getByRole('button', { name: 'Purple' }).click();
   await sheet.locator('[data-tag="subsFor"][data-value="armbar"]').click();
   await sheet.locator('[data-tag="subsAgainst"][data-value="triangle"]').click();
+  await unfold(page, 'positions');
   await sheet.locator('[data-tag="stuck"][data-value="half-guard"]').click();
   await sheet.getByRole('button', { name: 'Save' }).click();
   await expect(page.locator('#entries')).toContainText('Sam');
@@ -220,6 +221,7 @@ test('a round with moves landed and tried', async ({ page }) => {
   await card(page, 'roll').click();
   await card(page, 'roll').click();
   const sheet = page.locator('#sheet');
+  await unfold(page, 'moves');
   const landed = sheet.locator('[data-tags="landed"]');
   await landed.fill('knee slice');
   await landed.press('Enter');
@@ -234,4 +236,36 @@ test('a round with moves landed and tried', async ({ page }) => {
   await page.keyboard.press('Escape');
   await page.keyboard.press('g');
   await expect(page.locator('#progress')).toContainText('Moves in rounds');
+});
+
+test('typing a technique and tapping Save straight away keeps it (regression)', async ({ page }) => {
+  await open(page);
+  const box = (await card(page, 'class').boundingBox())!;
+  await page.mouse.move(box.x + 20, box.y + 20);
+  await page.mouse.down();
+  await page.waitForTimeout(600);
+  await page.mouse.up();
+  const sheet = page.locator('#sheet');
+  await sheet.locator('[data-tags="techniques"]').fill('arm drag');
+  await sheet.getByRole('button', { name: 'Save' }).click();
+  await expect(sheet).toBeHidden();
+  const [e] = await storedEvents(page);
+  expect(e.detail?.techniques).toEqual(['take-back-guard']);
+  await expect(page.locator('#entries')).toContainText('Arm drag');
+});
+
+test('a brand-new technique typed in a session is kept as typed, and tapping elsewhere shows its chip', async ({ page }) => {
+  await open(page);
+  const box = (await card(page, 'drilling').boundingBox())!;
+  await page.mouse.move(box.x + 20, box.y + 20);
+  await page.mouse.down();
+  await page.waitForTimeout(600);
+  await page.mouse.up();
+  const sheet = page.locator('#sheet');
+  await sheet.locator('[data-tags="techniques"]').fill('Kiss of the dragon');
+  await sheet.locator('[data-f="len"]').click();
+  await expect(sheet.locator('[data-untag="techniques"]')).toHaveText(['Kiss of the dragon']);
+  await sheet.getByRole('button', { name: 'Save' }).click();
+  const [e] = await storedEvents(page);
+  expect(e.detail?.techniques).toEqual(['Kiss of the dragon']);
 });

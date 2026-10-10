@@ -9,6 +9,8 @@ import { logKind, startKind, stopKind, toggleKind, type OpResult } from '../core
 import { currentRank, matMinutes, patterns, rankTimeline, rollsIn, rollStats, techniqueUses, weekRecap } from '../core/stats';
 import type { LogEvent } from '../core/types';
 import { logMarkdown } from './pasteView';
+import { newTechNote, techNotes } from '../core/library';
+import { resolveTechnique } from '../core/catalog';
 import { focuses, focusProgress, matchFocus, newFocus, roleLabel } from '../core/focus';
 import { newProblem, problems } from '../core/notebook';
 import { injuries, injuryDays, injuryTitle, newInjury, parseArea } from '../core/injuries';
@@ -157,6 +159,7 @@ matlog.solve(id)               mark a problem solved
 matlog.injuries(area?, opts?)  active and healed injuries; with an area ("left knee"), logs one:
                                { severity: 'minor'|'moderate'|'serious', how, around, daysAgo }  (a record, not medical advice)
 matlog.heal(id)                mark an injury healed
+matlog.techniqueNotes(t, text?, opts?)  notes on a technique; with text, adds one { kind: 'detail'|'observation'|'question'|'source', url }
 
 Common requests:
 ${RECIPES.map((r) => `- ${r.ask}\n    ${r.code}\n    ${r.note}`).join('\n')}`;
@@ -291,6 +294,20 @@ export function createAgentApi() {
       if (!e) throw new Error('matlog: no injury with that id (see matlog.injuries())');
       updateEvent(id, { detail: { ...e.detail, injury: { ...e.detail!.injury!, healedAt: Date.now() } } });
       return this.injuries();
+    },
+    /** Your notes on a technique (key details first). With text, adds one. */
+    techniqueNotes(technique: string, text?: string, opts: { kind?: 'detail' | 'observation' | 'question' | 'source'; url?: string } = {}) {
+      if (typeof technique !== 'string' || !technique.trim()) throw new Error('matlog: name a technique, e.g. "knee cut"');
+      const id = resolveTechnique(technique);
+      if (text !== undefined) {
+        if (typeof text !== 'string' || !text.trim()) throw new Error('matlog: note text is a non-empty string');
+        if (opts.kind && !['detail', 'observation', 'question', 'source'].includes(opts.kind)) throw new Error('matlog: kind is detail, observation, question or source');
+        addEvent(newTechNote(id, text, Date.now(), opts));
+      }
+      return {
+        technique: techniqueLabel(id),
+        notes: techNotes(app.get().events, id).map((e) => ({ id: e.id, kind: e.detail!.techNote!.kind, text: e.detail!.techNote!.text, url: e.detail!.techNote!.url ?? null, at: iso(e.at) })),
+      };
     },
     /** Marks a problem solved (by id from problems()). */
     solve(id: string) {

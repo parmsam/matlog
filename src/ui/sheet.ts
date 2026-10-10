@@ -60,7 +60,7 @@ function tags(field: 'techniques' | 'subsFor' | 'subsAgainst' | 'stuck' | 'lande
   const chips = list.map((id) => `<button type="button" class="tag-chip" data-untag="${field}" data-value="${esc(id)}" aria-label="Remove ${esc(label(id))}">${esc(label(id))}</button>`).join('');
   const sug = suggestions
     .filter(([id]) => !list.includes(id))
-    .slice(0, 10)
+    .slice(0, 6)
     .map(([id, l]) => `<button type="button" class="pick" data-tag="${field}" data-value="${esc(id)}">+ ${esc(l)}</button>`)
     .join('');
   return `<div class="field"><span class="field-label" id="lbl-${field}">${legend}</span>
@@ -76,17 +76,38 @@ function datalists(): string {
     <datalist id="dl-partners">${partners.map((p) => `<option value="${esc(p)}"></option>`).join('')}</datalist>`;
 }
 
+/** Is this round a match in a comp? Then its result matters more than usual. */
+const inCompSession = (r: LogEvent) => app.get().events.some((s) => s.type === 'comp' && !s.deleted && rollsIn(s, app.get().events, Date.now()).some((x) => x.id === r.id));
+
+/** Folded sections remember being opened while the sheet is open (it re-renders on every pick). */
+const openSections = new Set<string>();
+
+/** A folded group of optional fields: "Check-in · 2" says what's filled in without opening it. */
+function section(id: string, title: string, filled: number, body: string): string {
+  if (!body.trim()) return '';
+  return `<details class="fold" data-section="${id}" ${openSections.has(id) ? 'open' : ''}><summary><span>${title}</span>${filled ? `<span class="fold-count">${filled}</span>` : ''}</summary><div class="fold-body">${body}</div></details>`;
+}
+
+const n = (...xs: unknown[]) => xs.filter((x) => (Array.isArray(x) ? x.length : !!x)).length;
+
+function noteField(): string {
+  return `<label class="field"><span class="field-label">Note</span><textarea data-f="note" rows="3" placeholder="anything worth remembering">${esc(draft.detail.note ?? '')}</textarea></label>`;
+}
+
 function sessionFields(): string {
   const d = draft.detail;
   const kinds = SESSION_KINDS.map((k) => [k, `${kindById(k).emoji} ${kindById(k).label}`] as [string, string]);
   const recent = techniqueUses(app.get().events).map((u) => [u.id, u.label] as [string, string]);
   const sug = recent.length ? recent : TECHNIQUES.slice(0, 8).map((t) => [t.id, t.label] as [string, string]);
+  const rounds = existing && sessionLike(existing.type) ? rollsIn(existing, app.get().events, Date.now()).length : 0;
   return [
     picks('type', kinds, draft.type, 'Session'),
     picks<Attire>('attire', [['gi', 'Gi'], ['nogi', 'No-gi']], d.attire, 'Gi or no-gi'),
-    tags('techniques', 'Techniques', techniqueLabel, sug, 'Add a technique…', 'dl-tech'),
-    checkIn(),
-    roundsList(),
+    tags('techniques', 'Techniques', techniqueLabel, sug, 'Search or add a technique…', 'dl-tech'),
+    timeFields(),
+    section('note', 'Note', n(d.note?.trim()), noteField()),
+    section('checkin', 'Check-in: enjoyed it, followed my plan', n(d.enjoy, d.plan), checkIn()),
+    existing && sessionLike(existing.type) ? section('rounds', existing.type === 'comp' ? 'Matches' : 'Rounds', rounds, roundsList()) : '',
   ].join('');
 }
 
@@ -101,10 +122,8 @@ const FACES: [string, string][] = [
 /** "Am I still enjoying this? Did I follow my plan?": a quick check-in, usually filled in when reflecting. */
 function checkIn(): string {
   const d = draft.detail;
-  return `<div class="row stack-sm">
-    ${picks('enjoy', FACES, d.enjoy ? String(d.enjoy) : undefined, 'Enjoyed it', 'face')}
-    ${picks<PlanFollowed>('plan', [['yes', 'Yes'], ['partly', 'Partly'], ['no', 'No']], d.plan, 'Followed my plan')}
-  </div>`;
+  return `${picks('enjoy', FACES, d.enjoy ? String(d.enjoy) : undefined, 'Enjoyed it', 'face')}
+    ${picks<PlanFollowed>('plan', [['yes', 'Yes'], ['partly', 'Partly'], ['no', 'No']], d.plan, 'Followed my plan')}`;
 }
 
 /** The rounds inside a session you're editing, so a whole open mat can be filled in afterwards. */
@@ -119,8 +138,7 @@ function roundsList(): string {
       return `<li><button type="button" class="chip" data-edit-round="${r.id}">${esc(d.partner ?? 'Round')}${bits.length ? ` · ${esc(bits.join(' · '))}` : ''}</button></li>`;
     })
     .join('');
-  return `<div class="field"><span class="field-label">${existing.type === 'comp' ? 'Matches' : 'Rounds'} (${rs.length})</span>
-    <ul class="round-list">${rows}<li><button type="button" class="chip primary" data-add-round>+ Add ${existing.type === 'comp' ? 'a match' : 'a round'}</button></li></ul></div>`;
+  return `<ul class="round-list">${rows}<li><button type="button" class="chip primary" data-add-round>+ Add ${existing.type === 'comp' ? 'a match' : 'a round'}</button></li></ul>`;
 }
 
 function studyFields(): string {
@@ -130,7 +148,9 @@ function studyFields(): string {
       <input type="text" data-f="source" value="${esc(d.source ?? '')}" placeholder="an instructional, a coach's video, your notes" maxlength="200" autocomplete="off" /></label>
     <label class="field"><span class="field-label">Link (optional)</span>
       <input type="url" data-f="url" value="${esc(d.url ?? '')}" placeholder="https://" autocomplete="off" /></label>
-    ${tags('techniques', 'Techniques', techniqueLabel, recent.length ? recent : TECHNIQUES.slice(0, 8).map((t) => [t.id, t.label] as [string, string]), 'Add a technique…', 'dl-tech')}`;
+    ${tags('techniques', 'Techniques', techniqueLabel, recent.length ? recent : TECHNIQUES.slice(0, 8).map((t) => [t.id, t.label] as [string, string]), 'Search or add a technique…', 'dl-tech')}
+    ${timeFields()}
+    ${section('note', 'Note', n(d.note?.trim()), noteField())}`;
 }
 
 function rollFields(): string {
@@ -145,27 +165,33 @@ function rollFields(): string {
   ].filter(([id], i, a) => a.findIndex(([x]) => x === id) === i);
   const stuckSug = [...st.stuck.map((c) => [c.id, c.label] as [string, string]), ...POSITIONS.filter((p) => p.id !== 'submission').map((p) => [p.id, p.label] as [string, string])].filter(([id], i, a) => a.findIndex(([x]) => x === id) === i);
   const starts = POSITIONS.filter((p) => p.id !== 'submission');
-  return `<div class="row stack-sm"><label class="field"><span class="field-label">Started from (positional round)</span>
+  const inComp = !!existing && inCompSession(existing);
+  const positions = `<div class="row stack-sm"><label class="field"><span class="field-label">Started from</span>
       <select data-f="start"><option value="">Standing / not positional</option>${starts.map((p) => `<option value="${p.id}" ${d.start === p.id ? 'selected' : ''}>${esc(p.label)}</option>`).join('')}</select></label>
       ${picks<Role>('role', [['bottom', 'Bottom'], ['top', 'Top']], d.role, 'You were')}</div>
-    <label class="field"><span class="field-label">Partner</span>
+    ${tags('stuck', 'Where you got stuck', positionLabel, stuckSug, 'Add a position…', 'dl-pos')}`;
+  const moves = `${tags('landed', 'Landed', techniqueLabel, moveSug, 'A sweep, pass, takedown…', 'dl-tech')}
+    ${tags('tried', 'Went for, didn’t land', techniqueLabel, moveSug, 'A move…', 'dl-tech')}`;
+  const more = `${picks<Outcome>('outcome', [['win', 'Win'], ['draw', 'Draw'], ['loss', 'Loss']], d.outcome, 'Result (comp matches)')}
+    ${timeFields()}
+    ${noteField()}`;
+  return `<label class="field"><span class="field-label">Partner</span>
       <input type="text" data-f="partner" value="${esc(d.partner ?? '')}" list="dl-partners" placeholder="optional" autocomplete="off" maxlength="60" /></label>
     ${picks<Belt>('belt', BELTS.map((b) => [b, `<span class="dot" style="--sw: var(--belt-${b})"></span>${BELT_LABEL[b]}`] as [Belt, string]), d.belt, 'Their belt', 'belt')}
-    <div class="row stack-sm">
-      ${picks<Size>('size', [['smaller', 'Smaller'], ['similar', 'Similar'], ['bigger', 'Bigger']], d.size, 'Their size')}
-      ${picks<Outcome>('outcome', [['win', 'Win'], ['draw', 'Draw'], ['loss', 'Loss']], d.outcome, 'Match result (comps)')}
-    </div>
+    ${picks<Size>('size', [['smaller', 'Smaller'], ['similar', 'Similar'], ['bigger', 'Bigger']], d.size, 'Their size')}
     ${tags('subsFor', 'Subs you hit', subLabel, subSug(st.forBy), 'Add a submission…', 'dl-subs')}
     ${tags('subsAgainst', 'Tapped to', subLabel, subSug(st.againstBy), 'Add a submission…', 'dl-subs')}
-    ${tags('landed', 'Moves you landed', techniqueLabel, moveSug, 'Add a sweep, pass, takedown…', 'dl-tech')}
-    ${tags('tried', 'Moves you went for (didn’t land)', techniqueLabel, moveSug, 'Add a move…', 'dl-tech')}
-    ${tags('stuck', 'Where you got stuck', positionLabel, stuckSug, 'Add a position…', 'dl-pos')}`;
+    ${section('moves', 'Moves: landed, went for', n(d.landed, d.tried), moves)}
+    ${section('positions', 'Positions: where it started, where you got stuck', n(d.start, d.stuck), positions)}
+    ${section('more', inComp ? 'Result, time and note' : 'Time and note', n(d.outcome, d.note?.trim()), more)}`;
 }
 
 function promotionFields(): string {
   const d = draft.detail;
   return `${picks<Belt>('belt', BELTS.map((b) => [b, `<span class="dot" style="--sw: var(--belt-${b})"></span>${BELT_LABEL[b]}`] as [Belt, string]), d.belt, 'Belt', 'belt')}
-    ${picks('stripes', [0, 1, 2, 3, 4].map((n) => [String(n), n ? `${n} stripe${n === 1 ? '' : 's'}` : 'No stripes'] as [string, string]), String(d.stripes ?? 0), 'Stripes')}`;
+    ${picks('stripes', [0, 1, 2, 3, 4].map((x) => [String(x), x ? `${x} stripe${x === 1 ? '' : 's'}` : 'No stripes'] as [string, string]), String(d.stripes ?? 0), 'Stripes')}
+    ${timeFields()}
+    ${noteField()}`;
 }
 
 function timeFields(): string {
@@ -191,30 +217,37 @@ function render(focusTags?: string) {
         : t === 'study'
           ? 'New study session'
           : 'New session';
+  // Which sections are open is read from the sheet itself just before redrawing: the toggle event
+  // comes a moment later, and a quick Enter could redraw first and close the section again.
+  dialog()
+    .querySelectorAll<HTMLDetailsElement>('details[data-section]')
+    .forEach((x) => (x.open ? openSections.add(x.dataset.section!) : openSections.delete(x.dataset.section!)));
   const fields = sessionLike(t) ? sessionFields() : t === 'roll' ? rollFields() : t === 'study' ? studyFields() : promotionFields();
   rendering = true;
   try {
-    dialog().innerHTML = `<form novalidate>${sheetHead('sheet-title', title)}<div class="sheet-body">
+    // Everything optional folds; Cancel and Save stay pinned to the bottom; the rarer actions are text links.
+    const extras = [
+      existing && sessionLike(existing.type) && !draft.running ? `<button type="button" class="link-btn" data-reflect-session>📓 ${existing.detail?.reflectedAt ? 'Reflect again' : 'Reflect'}</button>` : '',
+      existing && (sessionLike(existing.type) || existing.type === 'roll') ? '<button type="button" class="link-btn" data-hurt>🩹 Got hurt?</button>' : '',
+      existing ? '<button type="button" class="link-btn danger-link" data-delete>Delete</button>' : '',
+    ].filter(Boolean);
+    dialog().innerHTML = `<form novalidate class="sheet-form">${sheetHead('sheet-title', title)}<div class="sheet-body">
     ${intro ? `<p class="hint" style="margin-top:0">${esc(intro)}</p>` : ''}
     ${fields}
-    ${timeFields()}
-    <label class="field"><span class="field-label">Note</span>
-      <textarea data-f="note" rows="2" placeholder="optional">${esc(draft.detail.note ?? '')}</textarea></label>
-    ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ''}
-    <div class="actions">
-      ${existing ? '<button type="button" class="btn danger" data-delete>Delete</button>' : ''}
-      ${existing && (sessionLike(existing.type) || existing.type === 'roll') ? '<button type="button" class="btn" data-hurt>🩹 Got hurt?</button>' : ''}
-      ${existing && sessionLike(existing.type) && !draft.running ? `<button type="button" class="btn" data-reflect-session>📓 ${existing.detail?.reflectedAt ? 'Reflect again' : 'Reflect'}</button>` : ''}
-      <span class="spacer"></span>
+    ${extras.length ? `<p class="sheet-extras">${extras.join('')}</p>` : ''}
+    </div>
+    <div class="sheet-foot">
+      ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ''}
       <button type="button" class="btn" data-close>Cancel</button>
       <button type="submit" class="btn primary">Save</button>
-    </div></div>${datalists()}</form>`;
+    </div>${datalists()}</form>`;
   } finally {
     rendering = false;
   }
   if (focusTags) dialog().querySelector<HTMLInputElement>(`[data-tags="${focusTags}"]`)?.focus();
 }
 
+const RESOLVE_LABEL: Partial<Record<keyof Detail, (id: string) => string>> = { techniques: techniqueLabel, landed: techniqueLabel, tried: techniqueLabel, subsFor: subLabel, subsAgainst: subLabel, stuck: positionLabel };
 const RESOLVE: Record<string, (s: string) => string> = { techniques: resolveTechnique, landed: resolveTechnique, tried: resolveTechnique, subsFor: resolveSub, subsAgainst: resolveSub, stuck: resolvePosition };
 
 function addTag(field: keyof Detail, text: string) {
@@ -268,7 +301,7 @@ function wire() {
       const inside = rollsIn(s, app.get().events, Date.now());
       const last = inside[inside.length - 1];
       const start = last ? (last.endAt ?? last.at + (last.detail?.min ?? settings.get().roundMin) * MIN) + MIN : s.at + 5 * MIN;
-      return openSheet({ type: 'roll', at: start, intro: `${s.type === 'comp' ? 'A match' : 'A round'} in ${kindById(s.type as KindId).label.toLowerCase()}.` });
+      return openSheet({ type: 'roll', at: start, detail: { sessionId: s.id }, intro: `${s.type === 'comp' ? 'A match' : 'A round'} in ${kindById(s.type as KindId).label.toLowerCase()}.` });
     }
     if (el.dataset.pick) {
       const field = el.dataset.pick;
@@ -306,11 +339,29 @@ function wire() {
       render(el.dataset.tags);
     }
   });
-  // Picking from the suggestion list (datalist) fires change.
+  // Change fires when a suggestion is picked from the list (the box keeps focus), and when the box
+  // loses focus with text in it. Only the first re-renders: re-rendering on blur would swallow the
+  // tap that caused it (typing a technique, then tapping Save, saved nothing). On blur the text is
+  // goes into the draft and its chip is added in place, without rebuilding the sheet.
   d.addEventListener('change', (e) => {
     const el = e.target as HTMLInputElement;
-    if (rendering || !el.isConnected) return;
-    if (el.dataset.tags && el.value.trim() && addTag(el.dataset.tags as keyof Detail, el.value)) render(el.dataset.tags);
+    if (rendering || !el.isConnected || !el.dataset.tags || !el.value.trim()) return;
+    const field = el.dataset.tags as keyof Detail;
+    const before = new Set((draft.detail[field] as string[] | undefined) ?? []);
+    if (!addTag(field, el.value)) return;
+    if (document.activeElement === el) return render(field);
+    const label = RESOLVE_LABEL[field] ?? ((x: string) => x);
+    for (const id of (draft.detail[field] as string[]).filter((x) => !before.has(x))) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'tag-chip';
+      chip.dataset.untag = field;
+      chip.dataset.value = id;
+      chip.textContent = label(id);
+      chip.setAttribute('aria-label', `Remove ${label(id)}`);
+      el.before(chip);
+    }
+    el.value = '';
   });
   d.addEventListener('keydown', (e) => {
     const el = e.target as HTMLInputElement;
@@ -345,6 +396,7 @@ function save(opts: { quiet?: boolean } = {}): boolean {
   const at = fromLocalInput(draft.at);
   if (at === null) {
     error = 'Pick a start time.';
+    openSections.add('more');
     {
       render();
       return false;
@@ -358,6 +410,7 @@ function save(opts: { quiet?: boolean } = {}): boolean {
     if (draft.running) {
       if (at > now + MIN) {
         error = "A running session can't start in the future.";
+        openSections.add('more');
         {
       render();
       return false;
@@ -375,6 +428,7 @@ function save(opts: { quiet?: boolean } = {}): boolean {
       const len = Math.round(Number(draft.len));
       if (!(len >= 1 && len <= 600)) {
         error = 'Length is 1–600 minutes.';
+        openSections.add('more');
         {
       render();
       return false;
@@ -417,8 +471,11 @@ export function onNextRound(fn: () => void) {
 export function openSheet(opts: SheetOpts) {
   wire();
   error = '';
+  openSections.clear();
+  dialog().replaceChildren(); // a new sheet starts folded, whatever the last one had open
   intro = opts.intro ?? '';
   existing = opts.event ? getEvent(opts.event.id) ?? opts.event : undefined;
+  if (existing?.type === 'roll' && inCompSession(existing)) openSections.add('more');
   const now = Date.now();
   if (existing) {
     const e = existing;

@@ -184,3 +184,18 @@ describe('skill ladder and positional rounds', () => {
     expect(positionalStats(events)).toMatchObject({ rolls: 5, positional: 3, badSpots: 2 });
   });
 });
+
+describe('rounds belong to sessions', () => {
+  const s = ev('class', at(2026, 10, 1, 19), { min: 60 });
+  const other = ev('open-mat', at(2026, 10, 1, 20, 30), { min: 60 });
+  it('by link, whatever the times', () => {
+    const linked = ev('roll', at(2026, 10, 1, 21), { min: 5, sessionId: s.id }); // during the open mat, but linked to class
+    expect(rollsIn(s, [s, other, linked], at(2026, 10, 2)).map((r) => r.id)).toEqual([linked.id]);
+    expect(rollsIn(other, [s, other, linked], at(2026, 10, 2))).toEqual([]);
+  });
+  it('by time without a link, with 10 minutes of grace after the end', () => {
+    const late = ev('roll', at(2026, 10, 1, 20, 8), { min: 5 });
+    const tooLate = ev('roll', at(2026, 10, 1, 20, 15), { min: 5 });
+    expect(rollsIn(s, [s, late, tooLate], at(2026, 10, 2)).map((r) => r.id)).toEqual([late.id]);
+  });
+});

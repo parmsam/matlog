@@ -4,7 +4,7 @@
  * it all merges, backs up and undoes the same way.
  */
 export type SessionKind = 'class' | 'open-mat' | 'drilling' | 'comp';
-export type EventType = SessionKind | 'roll' | 'study' | 'promotion' | 'focus' | 'problem' | 'technique' | 'injury';
+export type EventType = SessionKind | 'roll' | 'study' | 'promotion' | 'focus' | 'problem' | 'technique' | 'injury' | 'technote';
 
 export type Belt = 'white' | 'blue' | 'purple' | 'brown' | 'black';
 export const BELTS: Belt[] = ['white', 'blue', 'purple', 'brown', 'black'];
@@ -37,6 +37,8 @@ export interface Detail {
   /** Technique ids you went for but didn't land. */
   tried?: string[];
   outcome?: Outcome; // comp matches
+  /** The session a round belongs to, when known (started during it, added from it, pasted under it). */
+  sessionId?: string;
   /** Positional round: where it started (position id) and which side you were on. */
   start?: string;
   role?: Role;
@@ -59,6 +61,9 @@ export interface Detail {
 
   // Injury log
   injury?: InjuryDetail;
+
+  // A note on a technique (Technique library)
+  techNote?: TechNote;
 
   // Notebook
   focus?: FocusDetail;
@@ -105,6 +110,16 @@ export interface CustomTechnique {
   from: string;
   to: string;
   aka?: string[];
+}
+
+export type TechNoteKind = 'detail' | 'observation' | 'question' | 'source';
+
+export interface TechNote {
+  /** Technique id (built-in or your own, or free text). */
+  technique: string;
+  text: string;
+  kind: TechNoteKind;
+  url?: string;
 }
 
 export type InjurySide = 'left' | 'right' | 'both';

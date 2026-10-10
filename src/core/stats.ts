@@ -23,11 +23,18 @@ export function matMinutes(events: LogEvent[], now: number, from = -Infinity, to
   return total;
 }
 
-/** Rolls that happened during a session. */
+/** A round logged without a link still belongs to a session that ended up to this long before it. */
+export const ROUND_GRACE = 10 * 60_000;
+
+/**
+ * The rounds of a session. A round linked to a session (`detail.sessionId`: started while it ran,
+ * added from its sheet, pasted under it) stays with it whatever happens to either one's times. A
+ * round without a link belongs by time: from a minute before the session starts to 10 minutes after it ends.
+ */
 export function rollsIn(session: LogEvent, events: LogEvent[], now: number): LogEvent[] {
   const end = spanEnd(session, now);
   return rolls(events)
-    .filter((r) => r.at >= session.at - 60_000 && r.at <= end)
+    .filter((r) => (r.detail?.sessionId ? r.detail.sessionId === session.id : r.at >= session.at - 60_000 && r.at <= end + ROUND_GRACE))
     .sort((a, b) => a.at - b.at);
 }
 

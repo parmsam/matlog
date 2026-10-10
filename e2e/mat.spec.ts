@@ -1,4 +1,4 @@
-import { card, ev, expect, MIN, open, storedEvents, test, toastEl } from './helpers';
+import { card, ev, expect, MIN, open, storedEvents, test, toastEl, unfold } from './helpers';
 
 test('round clock: start, count down, end, rest', async ({ page }) => {
   await open(page); // default: 5-minute rounds, 1-minute rest
@@ -23,6 +23,7 @@ test('a round with nothing running offers to start open mat; saving a round offe
   await expect(card(page, 'open-mat')).toHaveClass(/running/);
   await card(page, 'roll').click();
   const sheet = page.locator('#sheet');
+  await unfold(page, 'positions');
   await sheet.locator('[data-f="start"]').selectOption('side-control');
   await sheet.getByRole('button', { name: 'Bottom' }).click();
   await sheet.getByRole('button', { name: 'Save' }).click();
@@ -38,11 +39,13 @@ test('editing a session lists its rounds and adds one', async ({ page }) => {
   await open(page, { events: [s, ev('roll', now - 170 * MIN, { detail: { min: 6, partner: 'Riley' } })] });
   await page.locator(`[data-entry="${s.id}"]`).click();
   const sheet = page.locator('#sheet');
+  await unfold(page, 'rounds');
   await expect(sheet.locator('.round-list')).toContainText('Riley');
   await sheet.getByRole('button', { name: '+ Add a round' }).click();
   await sheet.locator('[data-f="partner"]').fill('Jo');
   await sheet.getByRole('button', { name: 'Save' }).click();
   await page.locator(`[data-entry="${s.id}"]`).click();
+  await unfold(page, 'rounds');
   await expect(sheet.locator('.round-list')).toContainText('Jo');
 });
 

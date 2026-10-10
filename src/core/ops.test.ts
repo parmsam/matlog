@@ -69,3 +69,14 @@ describe('classes start on the hour', () => {
     settings.set({ classOnHour: true });
   });
 });
+
+describe('rounds are linked to the running session', () => {
+  it('when started or logged during it', () => {
+    const s = startKind('drilling');
+    const r = startKind('roll');
+    expect(r.kind === 'started' && r.event.detail?.sessionId).toBe(s.kind === 'started' && s.event.id);
+    stopKind('roll');
+    const l = logKind('roll', { detail: { min: 3 } });
+    expect(l.kind === 'logged' && l.event.detail?.sessionId).toBe(s.kind === 'started' && s.event.id);
+  });
+});

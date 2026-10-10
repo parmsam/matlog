@@ -14,7 +14,7 @@ Open the app with a `do` query parameter to log something. The parameters are re
 - `&min=90`: length in minutes (1–600). With a length, start and toggle log a finished entry instead
 - `&ago=15`: it ended (log) or started (start) 15 minutes ago (0–527040)
 - `&gi=gi|nogi`, `&tech=knee cut,armbar from guard` (techniques, comma-separated; unknown names are kept as typed)
-- Rounds only (a round belongs to whatever session it happens in: class, open mat, drilling or comp): `&partner=Sam&belt=white|blue|purple|brown|black&size=smaller|similar|bigger&sub=armbar,rnc&tapped=triangle&stuck=half guard&outcome=win|loss|draw`
+- Rounds only (a round belongs to whatever session it happens in: class, open mat, drilling or comp; one logged while a session runs is linked to it): `&partner=Sam&belt=white|blue|purple|brown|black&size=smaller|similar|bigger&sub=armbar,rnc&tapped=triangle&stuck=half guard&outcome=win|loss|draw`
 - Moves in a round: `&landed=knee cut,scissor sweep` (you landed them) and `&tried=berimbolo` (you went for it, it didn't land)
 - Positional rounds: `&from=side control&role=bottom|top`
 - Sessions: `&enjoy=1..5&plan=yes|partly|no` (a check-in)
@@ -46,6 +46,7 @@ When you control the page (Playwright `page.evaluate`, DevTools, a browser agent
 - `matlog.solve(id)`: mark a problem solved
 - `matlog.injuries(area?, opts?)`: `{ active, healed, note }`, each `{ id, what, severity, since, days, how, trainingAround, updates, healed }`. With an area (`'left knee'`, `'low back'`), logs one: opts `{ severity: 'minor'|'moderate'|'serious', how, around, daysAgo }`
 - `matlog.heal(id)`: mark an injury healed
+- `matlog.techniqueNotes(technique, text?, opts?)`: `{ technique, notes }`; with text, adds a note: opts `{ kind: 'detail'|'observation'|'question'|'source', url }`
 
 ## Class note format
 

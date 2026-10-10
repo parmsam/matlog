@@ -363,7 +363,7 @@ export function notesToEvents(parsed: ParsedSession[], now: number, defaultMin =
     let t = at + 60_000;
     for (const r of p.rolls) {
       const rmin = r.detail.min ?? roundMin;
-      out.push(createEvent('roll', Math.min(t, at + min * MIN), { ...r.detail, min: rmin }, now));
+      out.push(createEvent('roll', Math.min(t, at + min * MIN), { ...r.detail, min: rmin, sessionId: session.id }, now));
       t += (rmin + 1) * MIN;
     }
   }

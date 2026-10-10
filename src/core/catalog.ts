@@ -62,7 +62,7 @@ export const TECHNIQUES: Technique[] = [
   t('guillotine', 'Guillotine', 'submission', 'closed-guard', 'submission'),
   t('cross-collar', 'Cross collar choke', 'submission', 'closed-guard', 'submission', ['collar choke']),
   t('omoplata', 'Omoplata', 'submission', 'open-guard', 'submission'),
-  t('take-back-guard', 'Arm drag to back', 'transition', 'open-guard', 'back', ['arm drag']),
+  t('take-back-guard', 'Arm drag', 'transition', 'open-guard', 'back', ['arm drag to back', 'arm drag to the back']),
 
   t('de-la-riva-sweep', 'De la Riva sweep', 'sweep', 'open-guard', 'side-control', ['dlr sweep', 'dlr']),
   t('tripod-sweep', 'Tripod sweep', 'sweep', 'open-guard', 'side-control', ['tripod']),

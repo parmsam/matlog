@@ -82,3 +82,8 @@ export function ev(type: LogEvent['type'], at: number, extra: Partial<LogEvent> 
 
 export const card = (page: Page, id: string) => page.locator(`[data-card="${id}"]`);
 export const toastEl = (page: Page) => page.locator('.toast:not(.leaving)');
+/** Opens a folded section of the entry sheet (moves, positions, more, note, checkin, rounds). */
+export async function unfold(page: Page, id: string) {
+  const d = page.locator(`#sheet [data-section="${id}"]`);
+  if (!(await d.evaluate((x) => (x as HTMLDetailsElement).open))) await d.locator('summary').click();
+}

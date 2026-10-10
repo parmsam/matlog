@@ -1,9 +1,11 @@
 import { allTechniques, isCustom, POSITIONS, positionLabel, TECH_KINDS, techniqueById, techniqueLabel, TECHNIQUES } from '../core/catalog';
 import { dayKey, daysBetween } from '../core/days';
-import { defineTechnique, LibraryError } from '../core/library';
-import { addEvent, app, deleteEvent, settings } from '../core/log';
+import { defineTechnique, LibraryError, mentions, newTechNote, NOTE_KINDS, techNoteCounts, techNotes } from '../core/library';
+import { dayDate } from '../core/days';
+import { kindById, type KindId } from '../core/kinds';
+import { addEvent, app, deleteEvent, getEvent, revertTo, settings, updateEvent } from '../core/log';
 import { LEVELS, positionGraph, rollStats, SIZES_ORDER, skillLadder, techniqueUses, type LadderCell } from '../core/stats';
-import type { CustomTechnique } from '../core/types';
+import type { CustomTechnique, LogEvent, TechNoteKind } from '../core/types';
 import { graphSvg } from '../viz/graph';
 import { esc, openDialog, sheetHead } from './dom';
 import { toast } from './toast';
@@ -22,13 +24,22 @@ function since(at: number, now: number): string {
 
 function rows(now: number): string {
   const uses = techniqueUses(app.get().events);
+  // A technique you've only written notes about still belongs in the list.
+  for (const n of app.get().events) {
+    const id = !n.deleted && n.type === 'technote' ? n.detail?.techNote?.technique : undefined;
+    if (id && !uses.some((u) => u.id === id)) {
+      const t = techniqueById(id);
+      uses.push({ id, label: techniqueLabel(id), sessions: 0, landed: 0, attempts: 0, lastAt: n.at, from: t?.from, to: t?.to });
+    }
+  }
   const q = filter.trim().toLowerCase();
   const list = uses.filter((u) => !q || u.label.toLowerCase().includes(q) || (u.from && positionLabel(u.from).toLowerCase().includes(q)));
   if (!uses.length) return '<p class="empty">Tag techniques on a session, or note moves you landed or tried in a round, and they show up here.</p>';
   if (!list.length) return '<p class="empty">No technique matches.</p>';
+  const counts = techNoteCounts(app.get().events);
   return `<table class="data"><thead><tr><th>Technique</th><th>From → to</th><th class="num">Drilled</th><th class="num" title="Rounds you landed it, of rounds you went for it">Landed in rounds</th><th class="num">Last</th></tr></thead><tbody>${list
     .map(
-      (u) => `<tr><td><button type="button" class="link-btn" data-open="${esc(u.id)}">${esc(u.label)}</button></td><td class="entry-meta">${u.from && u.to ? `${esc(positionLabel(u.from))} → ${esc(positionLabel(u.to))}` : '<span class="tag">your own: add positions</span>'}</td><td class="num">${u.sessions || '–'}</td><td class="num">${u.attempts ? `${u.landed} of ${u.attempts}` : '–'}</td><td class="num">${since(u.lastAt, now)}</td></tr>`,
+      (u) => `<tr><td><button type="button" class="link-btn" data-open="${esc(u.id)}">${esc(u.label)}</button>${counts.get(u.id) ? ` <span class="entry-meta" title="Your notes">📝 ${counts.get(u.id)}</span>` : ''}</td><td class="entry-meta">${u.from && u.to ? `${esc(positionLabel(u.from))} → ${esc(positionLabel(u.to))}` : '<span class="tag">your own: add positions</span>'}</td><td class="num">${u.sessions || '–'}</td><td class="num">${u.attempts ? `${u.landed} of ${u.attempts}` : '–'}</td><td class="num">${since(u.lastAt, now)}</td></tr>`,
     )
     .join('')}</tbody></table>`;
 }
@@ -61,6 +72,41 @@ function editor(): string {
   </form>`;
 }
 
+let noteKind: TechNoteKind = 'detail';
+let editingNote: string | null = null;
+const shortDate = (ts: number) => dayDate(dayKey(ts)).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+const kindLabel = (k: TechNoteKind) => NOTE_KINDS.find((x) => x.id === k)?.label ?? k;
+
+/** Your notes on a technique (key details pinned), and what else your log says about it. */
+function notesSection(id: string): string {
+  const notes = techNotes(app.get().events, id);
+  const m = mentions(app.get().events, id);
+  const note = (e: LogEvent) => {
+    const n = e.detail!.techNote!;
+    if (editingNote === e.id)
+      return `<li class="tech-note editing"><textarea data-note-edit rows="3" maxlength="1000">${esc(n.text)}</textarea>
+        <input type="url" data-note-edit-url value="${esc(n.url ?? '')}" placeholder="Link (optional)" />
+        <div class="actions"><button type="button" class="btn danger" data-note-delete="${e.id}">Delete</button><span class="spacer"></span><button type="button" class="btn" data-note-cancel>Cancel</button><button type="button" class="btn primary" data-note-save="${e.id}">Save</button></div></li>`;
+    return `<li class="tech-note ${n.kind}"><span class="tag">${esc(kindLabel(n.kind))}</span> ${esc(n.text)}${n.url ? ` <a href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">link ↗</a>` : ''}
+      <span class="entry-meta">${shortDate(e.at)} · <button type="button" class="link-btn" data-note-edit-open="${e.id}">Edit</button></span></li>`;
+  };
+  const fromLog = [
+    ...m.sessions.map((s) => `<li><span class="entry-meta">${shortDate(s.at)} · ${esc(kindById(s.type as KindId).label)}</span> ${esc(s.detail!.note!)}</li>`),
+    ...m.problems.map((p) => `<li><span class="entry-meta">${shortDate(p.at)} · problem${p.detail!.problem!.solvedAt ? ' (solved)' : ''}</span> ${esc(p.detail!.problem!.text)}${p.detail!.problem!.idea ? ` <span class="entry-meta">· idea: ${esc(p.detail!.problem!.idea)}</span>` : ''}</li>`),
+  ];
+  return `<section class="block"><h3>Your notes</h3>
+    <p class="basis">Key details, things you’ve noticed, questions, sources. Key details stay at the top.</p>
+    <form data-note-form novalidate class="note-form">
+      <div class="picks">${NOTE_KINDS.map((k) => `<button type="button" class="pick" data-note-kind="${k.id}" aria-pressed="${k.id === noteKind}" title="${esc(k.hint)}">${k.label}</button>`).join('')}</div>
+      <textarea data-note-text rows="2" maxlength="1000" placeholder="${noteKind === 'detail' ? 'e.g. underhook the far arm before the knee goes across' : noteKind === 'question' ? 'e.g. what if they get the knee shield first?' : noteKind === 'source' ? 'e.g. Half guard passing, volume 2, chapter 4' : 'e.g. works better against people my size'}" aria-label="Note"></textarea>
+      <input type="url" data-note-url placeholder="Link (optional), e.g. a video at the right time" aria-label="Link" />
+      <div class="actions"><span class="spacer"></span><button type="submit" class="btn primary">Add note</button></div>
+    </form>
+    ${notes.length ? `<ul class="tech-notes">${notes.map(note).join('')}</ul>` : ''}
+  </section>
+  ${fromLog.length ? `<section class="block"><h3>From your log</h3><p class="basis">Notes from sessions you tagged it in, and problems that mention it.</p><ul class="plain from-log">${fromLog.join('')}</ul></section>` : ''}`;
+}
+
 function detailView(id: string, now: number): string {
   const t = techniqueById(id);
   const u = techniqueUses(app.get().events).find((x) => x.id === id);
@@ -70,6 +116,7 @@ function detailView(id: string, now: number): string {
     <p class="basis">${t ? `${esc(TECH_KINDS.find((k) => k.id === t.kind)?.label ?? '')} · ${esc(positionLabel(t.from))} → ${esc(positionLabel(t.to))}${catalog ? '' : ' · your own'}` : 'Your own, without positions yet'}${u ? ` · drilled in ${u.sessions} session${u.sessions === 1 ? '' : 's'} · last ${since(u.lastAt, now)}` : ''}</p>
     ${!catalog && !form ? `<p><button type="button" class="chip primary" data-define>${t ? 'Edit' : 'Add type and positions'}</button></p>` : ''}
     ${form ? editor() : ''}
+    ${notesSection(id)}
     <section class="block"><h3>Skill ladder</h3><p class="basis">Test new skills against people near your level in them, then climb.</p>${ladder(id)}</section>`;
 }
 
@@ -86,7 +133,7 @@ function render() {
             const stuck = new Set(rollStats(events).stuck.map((s) => s.id));
             const unused = allTechniques().filter((t) => !techniqueUses(events).some((u) => u.id === t.id)).length;
             return `<section><div class="section-head" style="margin-top:0"><h3 style="margin:0">Last drilled or tried</h3><button type="button" class="chip" data-add>+ Add a technique</button></div>
-              <p class="basis" style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Newest first. Tap one for its skill ladder. ${unused} techniques in the library you haven't used yet; anything you type is kept too.</p>
+              <p class="basis" style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Newest first. Tap one for your notes on it and its skill ladder. ${unused} techniques in the library you haven't used yet; anything you type is kept too.</p>
               <input class="search" type="search" placeholder="Filter by technique or position" value="${esc(filter)}" data-filter aria-label="Filter techniques" />
               <div data-rows>${rows(now)}</div>
             </section>
@@ -123,6 +170,14 @@ export function openTech(id?: string) {
     });
     d.addEventListener('submit', (e) => {
       e.preventDefault();
+      if ((e.target as HTMLElement).matches('[data-note-form]')) {
+        const text = d.querySelector<HTMLTextAreaElement>('[data-note-text]')!.value.trim();
+        if (!text || !detail) return;
+        const ev = addEvent(newTechNote(detail, text, Date.now(), { kind: noteKind, url: d.querySelector<HTMLInputElement>('[data-note-url]')!.value }));
+        render();
+        toast('Note added', { actions: [{ label: 'Undo', primary: true, run: () => (deleteEvent(ev.id), render()) }] });
+        return;
+      }
       readForm();
       try {
         const ev = addEvent(defineTechnique(form!, Date.now()));
@@ -141,9 +196,48 @@ export function openTech(id?: string) {
       const b = (e.target as HTMLElement).closest<HTMLElement>('button');
       if (!b) return;
       const ds = b.dataset;
+      if (ds.noteKind) {
+        const text = d.querySelector<HTMLTextAreaElement>('[data-note-text]')?.value ?? '';
+        noteKind = ds.noteKind as TechNoteKind;
+        render();
+        const ta = d.querySelector<HTMLTextAreaElement>('[data-note-text]');
+        if (ta) ta.value = text;
+        return;
+      }
+      if (ds.noteEditOpen) {
+        editingNote = ds.noteEditOpen;
+        return render();
+      }
+      if (ds.noteCancel !== undefined) {
+        editingNote = null;
+        return render();
+      }
+      if (ds.noteSave) {
+        const prev = getEvent(ds.noteSave)!;
+        const text = d.querySelector<HTMLTextAreaElement>('[data-note-edit]')!.value.trim();
+        if (!text) return;
+        const url = d.querySelector<HTMLInputElement>('[data-note-edit-url]')!.value.trim();
+        const note = { ...prev.detail!.techNote!, text: text.slice(0, 1000) };
+        if (url && /^https?:\/\//i.test(url)) note.url = url.slice(0, 500);
+        else delete note.url;
+        updateEvent(prev.id, { detail: { ...prev.detail, techNote: note } });
+        editingNote = null;
+        render();
+        toast('Saved', { actions: [{ label: 'Undo', primary: true, run: () => (revertTo(prev), render()) }] });
+        return;
+      }
+      if (ds.noteDelete) {
+        const prev = getEvent(ds.noteDelete)!;
+        deleteEvent(prev.id);
+        editingNote = null;
+        render();
+        toast('Note deleted', { actions: [{ label: 'Undo', primary: true, run: () => (revertTo(prev), render()) }] });
+        return;
+      }
       if (ds.open) {
         detail = ds.open;
         form = null;
+        editingNote = null;
       } else if (ds.back !== undefined) {
         detail = null;
         form = null;

@@ -48,7 +48,10 @@ export function logKind(what: KindId, { at = Date.now(), detail }: OpOptions = {
   const min = detail?.min ?? (what === 'roll' ? settings.get().roundMin : what === 'study' ? def.defaultMin : settings.get().defaultMin || def.defaultMin);
   const exact = at - min * MIN;
   const start = what === 'class' && settings.get().classOnHour ? classStart(exact, false) : exact;
-  const event = addEvent(createEvent(what, start, { ...detail, min }, Date.now()));
+  // A finished round logged while a session runs is one of its rounds.
+  const running = what === 'roll' && !detail?.sessionId ? ongoingSession(app.get().events) : undefined;
+  const link = running && running.at <= at ? { sessionId: running.id } : {};
+  const event = addEvent(createEvent(what, start, { ...detail, ...link, min }, Date.now()));
   return { kind: 'logged', what, event, ...(start !== exact ? { snappedFrom: exact } : {}) };
 }
 
@@ -65,7 +68,9 @@ export function startKind(what: KindId, { at = Date.now(), detail }: OpOptions =
   }
   const exact = Math.min(at, Date.now());
   const start = what === 'class' && settings.get().classOnHour ? classStart(exact, true) : exact;
-  const event = addEvent(createEvent(what, start, detail, Date.now()));
+  // A round started while a session runs is one of its rounds, whatever happens to their times later.
+  const session = what === 'roll' && !detail?.sessionId ? ongoingSession(events) : undefined;
+  const event = addEvent(createEvent(what, start, session ? { ...detail, sessionId: session.id } : detail, Date.now()));
   return { kind: 'started', what, event, ...(start !== exact ? { snappedFrom: exact } : {}) };
 }
 
