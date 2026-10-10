@@ -70,8 +70,8 @@ function render() {
     renderHero(now);
     renderRecent(now);
     renderCompanion(now);
-    const belt = currentRank(app.get().events, settings.get(), now).belt;
-    if (settings.get().lastBelt !== belt) settings.set({ lastBelt: belt });
+    const { belt, stripes } = currentRank(app.get().events, settings.get(), now);
+    if (settings.get().lastBelt !== belt || settings.get().lastStripes !== stripes) settings.set({ lastBelt: belt, lastStripes: stripes });
     const name = settings.get().name.trim();
     document.title = name ? `${name} · matlog` : 'matlog';
   });
@@ -146,7 +146,7 @@ document.addEventListener('keydown', (e) => {
 
 render();
 const loading = init();
-showSplash(loading, { enabled: settings.get().splash, rank: settings.get().lastBelt });
+showSplash(loading, { enabled: settings.get().splash, rank: settings.get().lastBelt, stripes: settings.get().lastStripes });
 void loading.then(({ restored }) => {
   if (restored) toast(`Recovered ${restored} entr${restored === 1 ? 'y' : 'ies'} from the on-device backup copy`);
   document.documentElement.dataset.ready = '';

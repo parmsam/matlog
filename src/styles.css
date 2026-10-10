@@ -1536,6 +1536,24 @@ kbd {
 }
 .splash-bar {
   fill: var(--belt-bar);
+  /* The buddy's outline color: a black bar would vanish into the dark theme's background. */
+  stroke: var(--buddy-line);
+  stroke-width: 1.5;
+}
+.splash-stripe {
+  fill: #fff;
+  animation: splash-fade 260ms ease-out both;
+}
+/* A preview shown as a popover: undo the popover's own box so it covers the screen like the real one. */
+.splash[popover] {
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  inset: 0;
 }
 .splash-mark > .splash-belt,
 .splash-bar {

@@ -32,6 +32,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reflectNotify: false,
   splash: true,
   lastBelt: 'white',
+  lastStripes: 0,
 };
 
 /** Backup reminder intervals offered in Settings (0 = only every 30 entries). */
@@ -67,6 +68,7 @@ export function sanitize(saved: Partial<Settings>): Settings {
   if (!COMPANIONS.includes(s.companion)) s.companion = 'grappler';
   s.splash = s.splash !== false;
   if (!BELTS.includes(s.lastBelt)) s.lastBelt = s.startBelt;
+  if (!Number.isInteger(s.lastStripes) || s.lastStripes < 0 || s.lastStripes > 4) s.lastStripes = 0;
   s.patches = Array.isArray(s.patches) ? [...new Set(s.patches.filter((p) => PATCHES.includes(p)))] : [];
   if (!Array.isArray(s.tipsSeen)) s.tipsSeen = [];
   s.focus = typeof s.focus === 'string' ? s.focus.slice(0, 140) : '';

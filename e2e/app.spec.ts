@@ -210,6 +210,24 @@ test('splash shows by default, a tap dismisses it without logging, and it can be
   await expect(splash).toHaveCount(0);
 });
 
+test('changing your belt in settings previews the splash, with stripes, and the next launch uses it', async ({ page }) => {
+  await open(page, { settings: { splash: true } });
+  await page.locator('.splash').click({ position: { x: 100, y: 300 } });
+  await expect(page.locator('.splash')).toHaveCount(0);
+  await page.keyboard.press(',');
+  await page.locator('#settings select[name="startBelt"]').selectOption('blue');
+  const preview = page.locator('.splash');
+  await expect(preview).toBeVisible(); // above the open settings dialog
+  await expect(preview.locator('.splash-mark')).toHaveAttribute('style', /belt-blue/);
+  await expect(preview).toHaveCount(0, { timeout: 3000 });
+  await page.locator('#settings select[name="startStripes"]').selectOption('3');
+  await expect(preview.locator('.splash-stripe')).toHaveCount(3);
+  await expect(page.locator('#settings')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('.splash .splash-mark')).toHaveAttribute('style', /belt-blue/);
+  await expect(page.locator('.splash .splash-stripe')).toHaveCount(3);
+});
+
 test('links skip the splash', async ({ page }) => {
   await open(page, { settings: { splash: true } }, './?do=log&type=class&min=60');
   await expect(page.locator('.splash')).toHaveCount(0);

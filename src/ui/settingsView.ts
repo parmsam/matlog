@@ -7,7 +7,8 @@ import { BACKUP_EVERY } from '../core/backupReminder';
 import { BACKUP_DAY_CHOICES } from '../core/settings';
 import { hours } from '../core/format';
 import { app, importData, settings } from '../core/log';
-import { matMinutes, PATCHES } from '../core/stats';
+import { currentRank, matMinutes, PATCHES } from '../core/stats';
+import { showSplash } from './splash';
 import { patchSvg } from '../viz/patch';
 import { backUpNow } from './backup';
 import { BELT_LABEL, copyText, esc, openDialog, sheetHead } from './dom';
@@ -171,6 +172,7 @@ export function openSettings() {
     const form = el.closest<HTMLFormElement>('[data-settings]');
     if (!form) return;
     const f = new FormData(form);
+    const rankBefore = currentRank(app.get().events, settings.get(), Date.now());
     settings.set({
       name: String(f.get('name') ?? '').trim(),
       startBelt: f.get('startBelt') as Belt,
@@ -184,6 +186,12 @@ export function openSettings() {
       reflectAfter: Number(f.get('reflectAfter')) as ReflectAfter,
       splash: f.get('splash') === 'on',
     });
+    // A new belt or stripe count plays the splash once, so you see how the app will open.
+    const rank = currentRank(app.get().events, settings.get(), Date.now());
+    if (rank.belt !== rankBefore.belt || rank.stripes !== rankBefore.stripes) {
+      settings.set({ lastBelt: rank.belt, lastStripes: rank.stripes });
+      showSplash(Promise.resolve(), { enabled: settings.get().splash, rank: rank.belt, stripes: rank.stripes, preview: true });
+    }
   });
   d.addEventListener('click', async (e) => {
     const el = e.target as HTMLElement;

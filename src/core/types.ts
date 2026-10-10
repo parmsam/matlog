@@ -220,6 +220,8 @@ export interface Settings {
   splash: boolean;
   /** Your belt as of the last visit, so the splash can show it before the log loads. */
   lastBelt: Belt;
+  /** Stripes on that belt, for the splash. */
+  lastStripes: number;
   /**
    * v0.2 kept one "Working on" line here. It moves into the log as a focus event on load
    * (see core/focus.ts migrateFocus) and these stay empty afterwards.
