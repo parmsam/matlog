@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en" data-theme="nogi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="One-tap BJJ training journal: classes, open mats, rolls, techniques. All data stays on your phone." />
+    <meta name="theme-color" content="#14161c" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>matlog</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand"><span class="brand-belt" aria-hidden="true"></span><span id="brand-name">matlog</span></div>
+        <nav class="topbar-actions" aria-label="Views">
+          <button id="shortcuts-open" class="icon-btn kbd-only" type="button" aria-label="Keyboard shortcuts (?)" title="Keyboard shortcuts (?)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M7.5 14h9"/></svg>
+          </button>
+          <button id="paste-open" class="icon-btn" type="button" aria-label="Paste a class note (V)" title="Paste a class note (V)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M8.5 10h7M8.5 14h7M8.5 18h4"/></svg>
+          </button>
+          <button id="tech-open" class="icon-btn" type="button" aria-label="Technique library (T)" title="Technique library (T)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="6" r="2.2"/><circle cx="12" cy="18" r="2.2"/><circle cx="19" cy="12" r="2.2"/><path d="M7 11l3-3.6M7 13l3 3.6M14 7.4l3 3.6M14 16.6l3-3.6"/></svg>
+          </button>
+          <button id="progress-open" class="icon-btn" type="button" aria-label="Progress (G)" title="Progress (G)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+          </button>
+          <button id="settings-open" class="icon-btn" type="button" aria-label="Settings (,)" title="Settings (,)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+          </button>
+        </nav>
+      </header>
+
+      <section class="hero" aria-label="Summary">
+        <div id="companion" class="companion" aria-hidden="true"></div>
+        <div class="hero-text">
+          <p id="rank" class="rank"></p>
+          <p id="hours" class="hours"></p>
+          <button id="focus" class="focus" type="button" title="What you're working on (F)"></button>
+        </div>
+      </section>
+
+      <div id="banner" class="banner" hidden></div>
+
+      <main>
+        <section id="cards" class="cards" aria-label="Log a session"></section>
+
+        <section class="recent" aria-labelledby="recent-title">
+          <div class="section-head">
+            <h2 id="recent-title">Recent</h2>
+            <div class="head-actions">
+              <button id="add-entry" class="chip" type="button">+ Add past session</button>
+            </div>
+          </div>
+          <p id="week-line" class="week-line"></p>
+          <ol id="entries" class="entries"></ol>
+          <p id="entries-empty" class="empty">Nothing logged yet. Tap <b>Class</b> when you bow in, or hold it to log one you already did.</p>
+        </section>
+      </main>
+
+      <footer class="foot">
+        <p>Your log stays on this device. matlog describes what you logged; it never coaches.</p>
+        <p class="foot-meta">
+          <a href="https://github.com/parmsam/matlog" target="_blank" rel="noopener">GitHub</a>
+          <span aria-hidden="true">·</span>
+          <a href="./llms.txt" target="_blank" rel="noopener">llms.txt</a>
+          <span aria-hidden="true">·</span>
+          <span id="app-version"></span>
+        </p>
+      </footer>
+    </div>
+
+    <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+    <dialog id="sheet" class="sheet" aria-labelledby="sheet-title"></dialog>
+    <dialog id="settings" class="sheet" aria-labelledby="settings-title"></dialog>
+    <dialog id="progress" class="sheet tall" aria-labelledby="progress-title"></dialog>
+    <dialog id="tech" class="sheet tall" aria-labelledby="tech-title"></dialog>
+    <dialog id="paste" class="sheet" aria-labelledby="paste-title"></dialog>
+    <dialog id="shortcuts" class="sheet" aria-labelledby="shortcuts-title"></dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
