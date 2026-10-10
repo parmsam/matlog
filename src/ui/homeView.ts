@@ -116,6 +116,7 @@ function sessionItem(s: LogEvent, events: LogEvent[], now: number): string {
   const running = s.endAt === undefined && !d.min;
   const rs = s.type === 'study' ? [] : rollsIn(s, events, now);
   const meta: string[] = [];
+  if (d.topic) meta.push(`<b>${esc(d.topic)}</b>`);
   if (d.source) meta.push(esc(d.source));
   if (d.enjoy) meta.push(['😩', '🙁', '😐', '🙂', '😄'][d.enjoy - 1]);
   if (d.reflectedAt) meta.push('📓');

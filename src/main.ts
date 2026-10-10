@@ -24,7 +24,7 @@ import './ui/reflectionsView';
 import { onLadder } from './ui/focusView';
 import { companionSay } from './ui/companion';
 import { setCustomTechniques } from './core/catalog';
-import { customFromLog } from './core/library';
+import { libraryFromLog } from './core/library';
 import { showSplash } from './ui/splash';
 import { currentRank } from './core/stats';
 import { toast, undoLast } from './ui/toast';
@@ -78,7 +78,10 @@ function render() {
 
 // Your own techniques live in the log; the catalog lookups see them through this registry.
 app.subscribe((s, prev) => {
-  if (s.events !== prev.events) setCustomTechniques(customFromLog(s.events));
+  if (s.events !== prev.events) {
+    const lib = libraryFromLog(s.events);
+    setCustomTechniques(lib.custom, lib.overrides);
+  }
 });
 app.subscribe(render);
 // New entries can make the backup reminder due; settings changes (a backup, "Not now") can clear it.

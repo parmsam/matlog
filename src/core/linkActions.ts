@@ -23,7 +23,7 @@ export type LinkVerb = 'log' | 'start' | 'stop' | 'toggle';
 export type LinkAction = { kind: LinkVerb; what: KindId; detail: Detail; minutesAgo: number } | { kind: 'invalid'; reason: string };
 
 /** Query parameters that belong to an action (removed after it runs). */
-export const LINK_PARAMS = ['do', 'type', 'what', 'min', 'ago', 'gi', 'attire', 'tech', 'partner', 'belt', 'size', 'sub', 'tapped', 'stuck', 'landed', 'tried', 'outcome', 'from', 'role', 'enjoy', 'plan', 'source', 'note'] as const;
+export const LINK_PARAMS = ['do', 'type', 'what', 'min', 'ago', 'gi', 'attire', 'tech', 'partner', 'belt', 'size', 'sub', 'tapped', 'stuck', 'landed', 'tried', 'outcome', 'from', 'role', 'enjoy', 'plan', 'source', 'topic', 'note'] as const;
 
 /** What people (and Siri) actually say. */
 const WHAT: Record<string, KindId> = {
@@ -144,6 +144,11 @@ export function parseLinkAction(search: string): LinkAction | null {
     detail.plan = plan as Detail['plan'];
   }
   if ((detail.enjoy || detail.plan) && (what === 'roll' || what === 'study')) return { kind: 'invalid', reason: 'enjoy and plan are for sessions' };
+  const topic = q.get('topic')?.trim().slice(0, 120);
+  if (topic) {
+    if (what === 'roll' || what === 'study') return { kind: 'invalid', reason: 'topic is for sessions' };
+    detail.topic = topic;
+  }
   const source = q.get('source')?.trim().slice(0, 200);
   if (source) {
     if (what !== 'study') return { kind: 'invalid', reason: 'source is for type=study' };

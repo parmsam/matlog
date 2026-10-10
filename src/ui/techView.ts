@@ -1,4 +1,4 @@
-import { allTechniques, isCustom, POSITIONS, positionLabel, TECH_KINDS, techniqueById, techniqueLabel, TECHNIQUES } from '../core/catalog';
+import { allTechniques, hasOverride, isBuiltIn, isCustom, POSITIONS, positionLabel, resolveTechnique, TECH_KINDS, techniqueById, techniqueLabel, variationsOf } from '../core/catalog';
 import { dayKey, daysBetween } from '../core/days';
 import { defineTechnique, LibraryError, mentions, newTechNote, NOTE_KINDS, techNoteCounts, techNotes } from '../core/library';
 import { dayDate } from '../core/days';
@@ -58,6 +58,7 @@ function ladder(id: string): string {
 
 function editor(): string {
   const f = form!;
+  const builtIn = !!f.id && isBuiltIn(f.id);
   const opts = (sel: string) =>
     POSITIONS.map((p) => `<option value="${p.id}" ${p.id === sel ? 'selected' : ''}>${esc(p.label)}</option>`).join('');
   return `<form data-tech-form novalidate class="block">
@@ -67,8 +68,15 @@ function editor(): string {
       <label class="field"><span class="field-label">Starts from</span><select data-from><option value="">Pick a position</option>${opts(f.from)}</select></label>
       <label class="field"><span class="field-label">Ends in</span><select data-to><option value="">Pick a position</option>${opts(f.to)}</select></label>
     </div>
+    <label class="field"><span class="field-label">Other names (optional, comma-separated)</span><input type="text" data-aka value="${esc((f.aka ?? []).join(', '))}" maxlength="200" autocomplete="off" placeholder="what else people call it" /></label>
+    <label class="field"><span class="field-label">Variation of (optional)</span><input type="text" data-parent value="${esc(f.parent ? techniqueLabel(f.parent) : '')}" list="dl-tech-all" autocomplete="off" placeholder="e.g. Arm drag" /></label>
+    <datalist id="dl-tech-all">${allTechniques()
+      .filter((t) => t.id !== f.id)
+      .map((t) => `<option value="${esc(t.label)}"></option>`)
+      .join('')}</datalist>
+    ${builtIn ? `<label class="check"><input type="checkbox" data-hidden ${f.hidden ? 'checked' : ''} /> Hide from suggestions (it’s still recognised when you type it)</label>` : ''}
     ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ''}
-    <div class="actions">${f.id && isCustom(f.id) ? '<button type="button" class="btn danger" data-forget>Remove from library</button>' : ''}<span class="spacer"></span><button type="button" class="btn" data-cancel>Cancel</button><button type="submit" class="btn primary">Save</button></div>
+    <div class="actions">${f.id && isCustom(f.id) ? '<button type="button" class="btn danger" data-forget>Remove from library</button>' : ''}${builtIn && hasOverride(f.id) ? '<button type="button" class="btn" data-reset>Back to the built-in version</button>' : ''}<span class="spacer"></span><button type="button" class="btn" data-cancel>Cancel</button><button type="submit" class="btn primary">Save</button></div>
   </form>`;
 }
 
@@ -91,6 +99,7 @@ function notesSection(id: string): string {
       <span class="entry-meta">${shortDate(e.at)} · <button type="button" class="link-btn" data-note-edit-open="${e.id}">Edit</button></span></li>`;
   };
   const fromLog = [
+    ...m.topic.map((s) => `<li><span class="entry-meta">${shortDate(s.at)} · ${esc(kindById(s.type as KindId).label)} on</span> <b>${esc(s.detail!.topic!)}</b>${s.detail?.techniques?.length ? ` <span class="entry-meta">· ${esc(s.detail.techniques.map(techniqueLabel).join(', '))}</span>` : ''}</li>`),
     ...m.sessions.map((s) => `<li><span class="entry-meta">${shortDate(s.at)} · ${esc(kindById(s.type as KindId).label)}</span> ${esc(s.detail!.note!)}</li>`),
     ...m.problems.map((p) => `<li><span class="entry-meta">${shortDate(p.at)} · problem${p.detail!.problem!.solvedAt ? ' (solved)' : ''}</span> ${esc(p.detail!.problem!.text)}${p.detail!.problem!.idea ? ` <span class="entry-meta">· idea: ${esc(p.detail!.problem!.idea)}</span>` : ''}</li>`),
   ];
@@ -110,11 +119,22 @@ function notesSection(id: string): string {
 function detailView(id: string, now: number): string {
   const t = techniqueById(id);
   const u = techniqueUses(app.get().events).find((x) => x.id === id);
-  const catalog = TECHNIQUES.some((x) => x.id === id);
+  const catalog = isBuiltIn(id);
+  const vars = variationsOf(id);
+  const uses = techniqueUses(app.get().events);
+  // A parent's numbers with its variations folded in, shown next to its own.
+  const fam = [u, ...vars.map((v) => uses.find((x) => x.id === v.id))].filter((x): x is NonNullable<typeof x> => !!x);
+  const famLine =
+    vars.length && fam.length > (u ? 1 : 0)
+      ? `<p class="basis">With its variations: drilled in ${fam.reduce((a, x) => a + x.sessions, 0)} sessions${fam.some((x) => x.attempts) ? `, landed ${fam.reduce((a, x) => a + x.landed, 0)} of ${fam.reduce((a, x) => a + x.attempts, 0)} in rounds` : ''}.</p>`
+      : '';
   return `<p><button type="button" class="link-btn" data-back>‹ All techniques</button></p>
     <h3 style="margin:0">${esc(techniqueLabel(id))}</h3>
-    <p class="basis">${t ? `${esc(TECH_KINDS.find((k) => k.id === t.kind)?.label ?? '')} · ${esc(positionLabel(t.from))} → ${esc(positionLabel(t.to))}${catalog ? '' : ' · your own'}` : 'Your own, without positions yet'}${u ? ` · drilled in ${u.sessions} session${u.sessions === 1 ? '' : 's'} · last ${since(u.lastAt, now)}` : ''}</p>
-    ${!catalog && !form ? `<p><button type="button" class="chip primary" data-define>${t ? 'Edit' : 'Add type and positions'}</button></p>` : ''}
+    <p class="basis">${t ? `${esc(TECH_KINDS.find((k) => k.id === t.kind)?.label ?? '')} · ${esc(positionLabel(t.from))} → ${esc(positionLabel(t.to))}${catalog ? (hasOverride(id) ? ' · edited by you' : '') : ' · your own'}${t.hidden ? ' · hidden from suggestions' : ''}` : 'Your own, without positions yet'}${u ? ` · drilled in ${u.sessions} session${u.sessions === 1 ? '' : 's'}${u.attempts ? `, landed ${u.landed} of ${u.attempts} in rounds` : ''} · last ${since(u.lastAt, now)}` : ''}</p>
+    ${t?.parent ? `<p class="basis">Variation of <button type="button" class="link-btn" data-open="${esc(t.parent)}">${esc(techniqueLabel(t.parent))}</button></p>` : ''}
+    ${vars.length ? `<p class="basis">Variations: ${vars.map((v) => `<button type="button" class="link-btn" data-open="${esc(v.id)}">${esc(v.label)}</button>`).join(', ')}</p>` : ''}
+    ${famLine}
+    ${!form ? `<p><button type="button" class="chip primary" data-define>${t ? 'Edit' : 'Add type and positions'}</button></p>` : ''}
     ${form ? editor() : ''}
     ${notesSection(id)}
     <section class="block"><h3>Skill ladder</h3><p class="basis">Test new skills against people near your level in them, then climb.</p>${ladder(id)}</section>`;
@@ -152,6 +172,12 @@ function readForm() {
   form.label = d.querySelector<HTMLInputElement>('[data-name]')?.value ?? form.label;
   form.from = d.querySelector<HTMLSelectElement>('[data-from]')?.value ?? form.from;
   form.to = d.querySelector<HTMLSelectElement>('[data-to]')?.value ?? form.to;
+  const aka = d.querySelector<HTMLInputElement>('[data-aka]');
+  if (aka) form.aka = aka.value.split(',').map((x) => x.trim()).filter(Boolean);
+  const parent = d.querySelector<HTMLInputElement>('[data-parent]');
+  if (parent) form.parent = parent.value.trim() ? resolveTechnique(parent.value) : undefined;
+  const hidden = d.querySelector<HTMLInputElement>('[data-hidden]');
+  if (hidden) form.hidden = hidden.checked;
 }
 
 export function openTech(id?: string) {
@@ -246,11 +272,18 @@ export function openTech(id?: string) {
         form = { id: '', label: filter.trim(), kind: 'sweep', from: '', to: '' };
       } else if (ds.define !== undefined) {
         const t = techniqueById(detail!);
-        form = { id: detail!, label: t?.label ?? detail!, kind: t?.kind ?? 'sweep', from: t?.from ?? '', to: t?.to ?? '' };
+        form = { id: detail!, label: t?.label ?? detail!, kind: t?.kind ?? 'sweep', from: t?.from ?? '', to: t?.to ?? '', aka: t?.aka, parent: t?.parent, hidden: t?.hidden };
       } else if (ds.kind) {
         readForm();
         form!.kind = ds.kind as CustomTechnique['kind'];
       } else if (ds.cancel !== undefined) form = null;
+      else if (ds.reset !== undefined) {
+        // Your version of a built-in is just events in the log: deleting them brings the original back.
+        const evs = app.get().events.filter((x) => x.type === 'technique' && !x.deleted && x.detail?.technique?.id === form!.id);
+        evs.forEach((x) => deleteEvent(x.id));
+        form = null;
+        toast('Back to the built-in version');
+      }
       else if (ds.forget !== undefined) {
         const evs = app.get().events.filter((x) => x.type === 'technique' && !x.deleted && x.detail?.technique?.id === form!.id);
         evs.forEach((x) => deleteEvent(x.id));

@@ -16,6 +16,7 @@ matlog is a sibling of [tinylog](https://github.com/parmsam/tinylog) and uses th
 
 **Logging**
 - **One tap.** Class, Open mat, Drilling, Comp and Round (plus Study, off by default). Tap to start, tap to stop. Timers are timestamps, so they keep going through reloads, a locked phone or a closed tab. Starting open mat while class runs switches it instead of starting a second session.
+- **Topic.** An optional "what the class was about" on any session; when it names a technique, that technique's page lists the sessions on it.
 - **Logging late is normal.** Every log shows **Undo**, **−5m / −15m / −30m** and **Details**. Hold a card to log one you already did, with its length (1 hour for a class by default). Classes start on the hour by default, and the toast always offers the exact time.
 - **Open mat flow.** Rounds belong to the session they happen in (class, open mat, drilling, or a comp, where they're matches): a round started during a session or added from its sheet stays with it even if you change its times, and one logged afterwards joins the session it falls in (or ended up to 10 minutes before). A round started on its own offers to start open mat; saving one offers **Next round**; a session's sheet lists its rounds with **+ Add a round**. The **round clock** (<kbd>K</kbd>) is a full-screen gym timer with round and rest lengths that buzzes at time and keeps the screen awake.
 - **Round log.** Stopping a round asks who you rolled with (partner, belt, size), where it started (positional rounds, top or bottom), subs you hit, what you tapped to, **moves you landed and moves you went for** (sweeps, passes, takedowns, back takes), and where you got stuck. Every field is optional and one tap away.
@@ -29,6 +30,7 @@ matlog is a sibling of [tinylog](https://github.com/parmsam/tinylog) and uses th
 - **Paste a class note.** Paste Markdown or plain text from your notes app and it becomes a session with its rounds. You see a preview before anything is saved.
 
 **Technique library**
+- **Edit the library.** Rename any technique (built-in or your own), add other names, change its type and positions, mark it as a **variation** of another (a parent shows its numbers with its variations), or hide built-ins you don't use from suggestions. Built-ins are never deleted, and "Back to the built-in version" undoes your changes.
 - **Notes on any technique**: key details (pinned to the top), observations, questions and sources with a link, plus what your sessions and problems already say about it.
 - Tag techniques per session from a built-in list of about 60 (takedowns, sweeps, passes, escapes, submissions), or type your own. **Add your own techniques** with a type and where they start and end, and they join the suggestions, the position graph and the skill ladder; anything already logged under that name links up.
 - **Last drilled or tried**: every technique, how many sessions you drilled it, and **landed X of Y** in rounds.
@@ -132,20 +134,47 @@ Any link with `?do=` logs something when opened, with the usual Undo. **Settings
 
 ## Class notes in Markdown
 
-Paste this (or your own version) with <kbd>V</kbd>:
+Paste a class note (**📋 Paste a note**, or <kbd>V</kbd>) and matlog logs the session with its techniques, rounds, problems and injuries. You see what will be logged before anything is saved. Exports use the same format, so a copied week pastes straight back in, and it drops into Obsidian or any notes app.
 
 ```markdown
-## No-gi class 2026-10-08 18:00
-Length: 90m
-Techniques: knee cut, arm triangle
-Good rounds, cardio was rough.
+## Class
+- Date: 2026-10-08 18:00
+- Length: 90m
+- Gi: no-gi
+- Topic: Half guard passing
 
-### Rolls
-- Sam (purple, bigger): hit armbar; tapped to triangle; stuck in half guard
-- Jo (white): hit rnc; landed knee cut; tried berimbolo
+### Techniques
+- Knee cut pass
+  - Key detail: underhook the far arm first
+- Shoulder post wrist grab arm drag
+
+### Rounds
+- Sam (purple, bigger)
+  - Started from: half guard bottom
+  - Hit: armbar
+  - Tapped to: triangle
+  - Landed: knee cut
+  - Stuck: half guard
+
+### Problems
+- Got flattened in half guard
+  - Idea: knee shield first
+
+### Injuries
+- Left knee (minor)
+  - How: heel hook
+  - Training around it: no leg locks
+
+### Notes
+Anything else, as free text.
 ```
 
-A heading that names a session (class, open mat, drilling, comp, study) starts one, and a "Rolls" heading lists rounds. The notebook keys work too: `Problem I hit today:`, `Idea to try / solution:`, `Enjoyed: 4`, `Followed my plan: partly`, and `Injury: left knee (minor): heel hook`. Common names are recognised ("knee slice" is a knee cut, "rear naked" is an RNC); anything else is kept as you typed it. Export writes the same format, so a copied week pastes back in cleanly.
+- `## Class` starts a session (Class, Open mat, Drilling, Comp or Study); several can follow each other.
+- Session details are bullets: Date, Length, Gi, Topic, Enjoyed (1–5), Followed my plan.
+- Each `###` section is a list: one technique, round, problem or injury per bullet, with sub-bullets for its details. Technique sub-bullets become notes on that technique (Key detail, Observation, Question, Source).
+- Names are forgiving ("knee slice" is a knee cut, "rear naked" is an RNC); anything else is kept as you typed it. Older notes (comma lists, one-line rounds) still work.
+
+**With an AI.** Got a voice memo or a messy note? In the Paste dialog, open **The format** and tap **Copy prompt for an AI**. Paste the prompt into ChatGPT or Claude with your notes, then paste the answer back into matlog. The prompt includes your own technique and partner names, so they match. Claude users can also add the skill in [`skills/matlog-note`](skills/matlog-note/SKILL.md), and agents can read the same spec in [`llms.txt`](public/llms.txt).
 
 ## Privacy
 

@@ -52,6 +52,8 @@ export interface ActOptions {
   plan?: 'yes' | 'partly' | 'no';
   /** Study: what you studied. */
   source?: string;
+  /** Sessions: what the class was about. */
+  topic?: string;
   note?: string;
 }
 
@@ -79,7 +81,7 @@ function toEntry(e: LogEvent, now = Date.now()) {
       landed: (d.landed ?? []).map(techniqueLabel),
       tried: (d.tried ?? []).map(techniqueLabel),
     };
-  return { ...base, gi: d.attire ?? null, techniques: (d.techniques ?? []).map(techniqueLabel), rounds: rollsIn(e, app.get().events, now).length, enjoy: d.enjoy ?? null, plan: d.plan ?? null };
+  return { ...base, gi: d.attire ?? null, topic: d.topic ?? null, techniques: (d.techniques ?? []).map(techniqueLabel), rounds: rollsIn(e, app.get().events, now).length, enjoy: d.enjoy ?? null, plan: d.plan ?? null };
 }
 
 /** Runs a verb through the link-action parser, so names, aliases and validation match `?do=` links. */
@@ -104,6 +106,7 @@ function act(verb: 'log' | 'start' | 'stop' | 'toggle', what: string, opts: ActO
     enjoy: opts.enjoy,
     plan: opts.plan,
     source: opts.source,
+    topic: opts.topic,
     note: opts.note,
   };
   for (const [k, v] of Object.entries(map)) if (v !== undefined && v !== null && v !== '') q.set(k, String(v));
@@ -139,7 +142,7 @@ matlog.log(type, opts?)        log a finished one, ending now (or minutesAgo); o
                                  partner, belt, size: 'smaller'|'similar'|'bigger',     (rolls)
                                  subs, tapped, landed, tried, stuck,                    (rolls; lists: array or comma text)
                                  outcome: 'win'|'loss'|'draw', from, role: 'top'|'bottom',
-                                 enjoy: 1-5, plan: 'yes'|'partly'|'no',               (sessions)
+                                 topic, enjoy: 1-5, plan: 'yes'|'partly'|'no',        (sessions)
                                  source }                                              (study)
 matlog.start(type, opts?)      start the timer (one session at a time; a round can run inside it)
 matlog.stop(type, opts?)       stop it

@@ -31,3 +31,31 @@ describe('technique notes', () => {
     expect(m.problems.map((e) => e.id)).toEqual([p.id]);
   });
 });
+
+describe('editing built-ins and variations', () => {
+  it('overrides a built-in by id, hides it from suggestions, and links variations', async () => {
+    const { libraryFromLog } = await import('./library');
+    const cat = await import('./catalog');
+    const edit = defineTechnique({ id: 'take-back-guard', label: 'Arm drag (seated)', kind: 'transition', from: 'open-guard', to: 'back', aka: ['seated arm drag'] }, 1);
+    const hide = defineTechnique({ id: 'osoto-gari', label: 'Osoto gari', kind: 'takedown', from: 'standing', to: 'side-control', hidden: true }, 2);
+    const mine = defineTechnique({ id: '', label: 'Shoulder post wrist grab arm drag', kind: 'transition', from: 'open-guard', to: 'back', parent: 'take-back-guard' }, 3);
+    const lib = libraryFromLog([edit, hide, mine]);
+    expect(lib.custom.map((t) => t.id)).toEqual(['Shoulder post wrist grab arm drag']);
+    expect([...lib.overrides.keys()]).toEqual(['take-back-guard', 'osoto-gari']);
+    cat.setCustomTechniques(lib.custom, lib.overrides);
+    try {
+      expect(cat.techniqueLabel('take-back-guard')).toBe('Arm drag (seated)');
+      expect(cat.resolveTechnique('seated arm drag')).toBe('take-back-guard');
+      expect(cat.visibleTechniques().some((t) => t.id === 'osoto-gari')).toBe(false);
+      // Hidden is only about suggestions: typing it still works.
+      expect(cat.resolveTechnique('osoto gari')).toBe('osoto-gari');
+      expect(cat.variationsOf('take-back-guard').map((t) => t.id)).toEqual(['Shoulder post wrist grab arm drag']);
+    } finally {
+      cat.setCustomTechniques([]);
+    }
+  });
+  it('refuses a variation of itself, and only hides built-ins', () => {
+    expect(() => defineTechnique({ id: 'x', label: 'X', kind: 'sweep', from: 'open-guard', to: 'mount', parent: 'x' }, 1)).toThrow(/itself/);
+    expect(defineTechnique({ id: '', label: 'Mine', kind: 'sweep', from: 'open-guard', to: 'mount', hidden: true }, 1).detail!.technique!.hidden).toBeUndefined();
+  });
+});

@@ -32,6 +32,8 @@ BJJ training journal: one-tap logging of sessions and rounds, plus descriptive v
 - **Injuries** (`core/injuries.ts`) are a record only: no diagnoses, rest advice, return-to-training dates or treatment suggestions anywhere (UI, patterns, API, agents). Severity is the person's call.
 - **Rounds and sessions**: a round's `detail.sessionId` (when set) decides its session; otherwise `rollsIn` groups by time with `ROUND_GRACE`. Set the link whenever the session is known.
 - **Sheets**: optional fields go in folded `section()`s; Cancel/Save live in the sticky `.sheet-foot`. Never re-render a sheet on blur (it swallows the tap that caused it).
+- **The class note format** is defined once: `NOTE_FORMAT` and `NOTE_RULES` in `src/core/markdown.ts`. If you change it, update `public/llms.txt`, `skills/matlog-note/SKILL.md` and the README to match (`prompt.test.ts` fails until llms.txt and the skill do), and keep the older forms importing.
+- **Library overrides**: a `technique` event whose id is a built-in's is your version of that built-in. Never delete built-ins; hide them.
 - **Your own techniques** are `technique` events; `core/catalog.ts` sees them through `setCustomTechniques` (kept in step with the log in `main.ts`). Look techniques up through the catalog functions, never `TECHNIQUES` directly, unless you mean the built-in list.
 - **Charts** need a text equivalent (a table or list) and `title`/`aria-label` on marks.
 - **Motion**: respect `prefers-reduced-motion`. Never use pixel `transform-origin` on SVG; use `transform-box: fill-box`.

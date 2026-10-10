@@ -2,84 +2,147 @@ import { positionLabel, resolvePosition, resolveSub, resolveTechnique, subLabel,
 import { dayDate, dayKey } from './days';
 import { createEvent, isSession, minutesOf } from './events';
 import { duration, dayTitle } from './format';
-import { kindById, type KindId } from './kinds';
-import { newProblem, problemsFor } from './notebook';
 import { injuryTitle, newInjury, parseArea } from './injuries';
+import { kindById, type KindId } from './kinds';
+import { newTechNote, techNotes } from './library';
+import { newProblem, problemsFor } from './notebook';
 import { rollsIn } from './stats';
-import { BELTS, type Belt, type Detail, type LogEvent, type ProblemSource, type Role, type SessionKind, type Size } from './types';
+import { BELTS, type Belt, type Detail, type LogEvent, type ProblemSource, type Role, type SessionKind, type Size, type TechNoteKind } from './types';
 
 /**
- * Markdown in and out. Export writes each session as a small note; import reads the same format
- * back, and is forgiving about anything a person (or a dictation app) would type:
- *
- *   ## Class · Wed, Oct 8
- *   - Date: 2026-10-08 18:00
- *   - Length: 90m
- *   - Gi: no-gi
- *   - Techniques: knee cut, armbar from guard
- *   - Note: good rounds
- *
- *   ### Rolls
- *   - Sam (purple, bigger, 6m): hit armbar; tapped to triangle; landed knee cut; tried berimbolo; stuck in half guard
+ * Markdown in and out: the class note format (v2). Export writes it; import reads it back, along
+ * with older and looser notes (comma lists, one-line rounds, plain text). The spec lives in
+ * NOTE_FORMAT below, which the Paste dialog, llms.txt and the AI prompt all show.
  */
 
 const MIN = 60_000;
 
-// ---------- Export ----------
+/** The format, as people (and language models) should write it. */
+export const NOTE_FORMAT = `## Class
+- Date: 2026-10-08 18:00
+- Length: 90m
+- Gi: no-gi
+- Topic: Half guard passing
 
-function rollLine(r: LogEvent, now: number): string {
-  const d = r.detail ?? {};
-  const from = d.start ? `from ${positionLabel(d.start).toLowerCase()}${d.role ? ` ${d.role}` : ''}` : '';
-  const tags = [d.belt, d.size, d.outcome, from, `${minutesOf(r, now)}m`].filter(Boolean);
-  const who = `${d.partner ?? 'Round'} (${tags.join(', ')})`;
-  const bits: string[] = [];
-  if (d.subsFor?.length) bits.push(`hit ${d.subsFor.map(subLabel).join(', ')}`);
-  if (d.subsAgainst?.length) bits.push(`tapped to ${d.subsAgainst.map(subLabel).join(', ')}`);
-  if (d.landed?.length) bits.push(`landed ${d.landed.map(techniqueLabel).join(', ')}`);
-  if (d.tried?.length) bits.push(`tried ${d.tried.map(techniqueLabel).join(', ')}`);
-  if (d.stuck?.length) bits.push(`stuck in ${d.stuck.map(positionLabel).join(', ')}`);
-  if (d.note) bits.push(`note ${d.note.replace(/\s+/g, ' ')}`);
-  return `- ${who}${bits.length ? `: ${bits.join('; ')}` : ''}`;
-}
+### Techniques
+- Knee cut pass
+  - Key detail: underhook the far arm first
+- Shoulder post wrist grab arm drag
+
+### Rounds
+- Sam (purple, bigger)
+  - Started from: half guard bottom
+  - Hit: armbar
+  - Tapped to: triangle
+  - Landed: knee cut
+  - Stuck: half guard
+
+### Problems
+- Got flattened in half guard
+  - Idea: knee shield first
+
+### Injuries
+- Left knee (minor)
+  - How: heel hook
+  - Training around it: no leg locks
+
+### Notes
+Anything else, as free text.`;
+
+/** What each part of the format means, for the Paste dialog and llms.txt. */
+export const NOTE_RULES = [
+  '`## Class` starts a session: Class, Open mat, Drilling, Comp or Study. Several sessions can follow each other.',
+  'Session details are bullets: Date (YYYY-MM-DD HH:MM), Length (90m, 1h30), Gi (gi or no-gi), Topic, Enjoyed (1–5), Followed my plan (yes, partly, no). Study also takes Source.',
+  '`### Techniques`: one technique per bullet. Sub-bullets add notes to it: Key detail, Observation, Question, Source (a link in brackets works).',
+  '`### Rounds` (or Rolls, Matches): one partner per bullet, with belt, size and length in brackets. Sub-bullets: Started from (a position, then top or bottom), Hit, Tapped to, Landed, Went for, Stuck, Result (win, draw, loss), Note. Lists are comma-separated.',
+  '`### Problems`: one problem per bullet, `(solved)` at the end if it is. Sub-bullet: Idea.',
+  '`### Injuries`: one per bullet, like `Left knee (minor)`. Sub-bullets: How, Training around it.',
+  '`### Notes`: free text. Anything matlog doesn’t recognise also ends up in the note.',
+];
+
+// ---------- Export ----------
 
 const stamp = (ts: number) => {
   const d = new Date(ts);
   return `${dayKey(ts)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
+const sentence = (s: string) => s.replace(/\s+/g, ' ').trim();
+
+const NOTE_KIND_LABEL: Record<TechNoteKind, string> = { detail: 'Key detail', observation: 'Observation', question: 'Question', source: 'Source' };
+
+function roundMarkdown(r: LogEvent, now: number): string[] {
+  const d = r.detail ?? {};
+  const tags = [d.belt, d.size, `${minutesOf(r, now)}m`].filter(Boolean);
+  const out = [`- ${d.partner ?? 'Round'} (${tags.join(', ')})`];
+  const sub = (k: string, v: string | undefined) => {
+    if (v) out.push(`  - ${k}: ${v}`);
+  };
+  sub('Started from', d.start ? `${positionLabel(d.start).toLowerCase()}${d.role ? ` ${d.role}` : ''}` : undefined);
+  sub('Hit', d.subsFor?.map(subLabel).join(', '));
+  sub('Tapped to', d.subsAgainst?.map(subLabel).join(', '));
+  sub('Landed', d.landed?.map(techniqueLabel).join(', '));
+  sub('Went for', d.tried?.map(techniqueLabel).join(', '));
+  sub('Stuck', d.stuck?.map(positionLabel).join(', '));
+  sub('Result', d.outcome);
+  sub('Note', d.note ? sentence(d.note) : undefined);
+  return out;
+}
+
 export function sessionMarkdown(s: LogEvent, events: LogEvent[], now: number): string {
   const kind = kindById(s.type as KindId);
   const d = s.detail ?? {};
-  const out = [`## ${kind.label} · ${dayTitle(dayDate(dayKey(s.at)))}`, '', `- Date: ${stamp(s.at)}`, `- Length: ${duration(minutesOf(s, now) * MIN)}`];
+  const out = [`## ${kind.label}`, '', `- Date: ${stamp(s.at)}`, `- Length: ${duration(minutesOf(s, now) * MIN)}`];
   if (d.attire) out.push(`- Gi: ${d.attire === 'gi' ? 'gi' : 'no-gi'}`);
-  if (d.techniques?.length) out.push(`- Techniques: ${d.techniques.map(techniqueLabel).join(', ')}`);
+  if (d.topic) out.push(`- Topic: ${d.topic}`);
   if (d.source) out.push(`- Source: ${d.source}${d.url ? ` (${d.url})` : ''}`);
-  if (d.enjoy) out.push(`- Enjoyed: ${d.enjoy}/5`);
+  if (d.enjoy) out.push(`- Enjoyed: ${d.enjoy}`);
   if (d.plan) out.push(`- Followed my plan: ${d.plan}`);
-  if (d.note) out.push(`- Note: ${d.note.replace(/\s+/g, ' ')}`);
-  for (const i of events.filter((e) => !e.deleted && e.type === 'injury' && e.detail?.injury?.sessionId === s.id)) {
-    const d = i.detail!.injury!;
-    out.push(`- Injury: ${injuryTitle(d)}${d.severity ? ` (${d.severity})` : ''}${d.how ? `: ${d.how}` : ''}`);
-  }
-  for (const p of problemsFor(s.id, events)) {
-    const pr = p.detail!.problem!;
-    out.push(`- Problem: ${pr.text}${pr.solvedAt ? ' (solved)' : ''}`);
-    if (pr.idea) out.push(`- Idea: ${pr.idea}`);
-  }
+  if (d.techniques?.length) out.push('', '### Techniques', ...d.techniques.map((t) => `- ${techniqueLabel(t)}`));
   const rs = s.type === 'study' ? [] : rollsIn(s, events, now);
-  if (rs.length) out.push('', '### Rolls', ...rs.map((r) => rollLine(r, now)));
+  if (rs.length) out.push('', s.type === 'comp' ? '### Matches' : '### Rounds', ...rs.flatMap((r) => roundMarkdown(r, now)));
+  const probs = problemsFor(s.id, events);
+  if (probs.length)
+    out.push(
+      '',
+      '### Problems',
+      ...probs.flatMap((p) => {
+        const pr = p.detail!.problem!;
+        return [`- ${sentence(pr.text)}${pr.solvedAt ? ' (solved)' : ''}`, ...(pr.idea ? [`  - Idea: ${sentence(pr.idea)}`] : [])];
+      }),
+    );
+  const injs = events.filter((e) => !e.deleted && e.type === 'injury' && e.detail?.injury?.sessionId === s.id);
+  if (injs.length)
+    out.push(
+      '',
+      '### Injuries',
+      ...injs.flatMap((i) => {
+        const x = i.detail!.injury!;
+        return [`- ${injuryTitle(x)}${x.severity ? ` (${x.severity})` : ''}`, ...(x.how ? [`  - How: ${sentence(x.how)}`] : []), ...(x.around ? [`  - Training around it: ${sentence(x.around)}`] : [])];
+      }),
+    );
+  if (d.note?.trim()) out.push('', '### Notes', d.note.trim());
   return out.join('\n');
 }
 
 /** Sessions between two days (inclusive), newest first, as Markdown. */
 export function toMarkdown(events: LogEvent[], fromDay: string, toDay: string, now: number, name = ''): string {
   const list = events.filter((e) => !e.deleted && (isSession(e) || e.type === 'study') && dayKey(e.at) >= fromDay && dayKey(e.at) <= toDay).sort((a, b) => b.at - a.at);
-  const range = fromDay === toDay ? dayTitle(dayDate(toDay)) : `${dayTitle(dayDate(fromDay))} – ${dayTitle(dayDate(toDay))}`;
-  const out = [`# ${name.trim() ? `${name.trim()}'s training` : 'Training log'} · ${range}`, ''];
+  const range = fromDay === toDay ? dayTitle(dayDate(toDay)) : `${dayTitle(dayDate(fromDay))} to ${dayTitle(dayDate(toDay))}`;
+  const out = [`# ${name.trim() ? `${name.trim()}'s training` : 'Training log'}: ${range}`, ''];
   if (!list.length) out.push('_Nothing logged._', '');
   for (const s of list) out.push(sessionMarkdown(s, events, now), '');
   out.push('_Exported from matlog._', '');
   return out.join('\n');
+}
+
+/** A technique's notes as Markdown (for copying out of the library). */
+export function techniqueMarkdown(id: string, events: LogEvent[]): string {
+  const notes = techNotes(events, id).map((e) => {
+    const n = e.detail!.techNote!;
+    return `- ${NOTE_KIND_LABEL[n.kind]}: ${sentence(n.text)}${n.url ? ` (${n.url})` : ''}`;
+  });
+  return [`## ${techniqueLabel(id)}`, '', ...notes].join('\n');
 }
 
 // ---------- Import ----------
@@ -100,12 +163,21 @@ export interface ParsedInjury {
   side?: 'left' | 'right' | 'both';
   severity?: 'minor' | 'moderate' | 'serious';
   how?: string;
+  around?: string;
+}
+
+export interface ParsedTechNote {
+  technique: string;
+  kind: TechNoteKind;
+  text: string;
+  url?: string;
 }
 
 export interface ParsedSession {
   type: SessionKind | 'study';
   problems: ParsedProblem[];
   injuries?: ParsedInjury[];
+  techNotes?: ParsedTechNote[];
   /** Start time; null when the note didn't say (the caller picks one). */
   at: number | null;
   detail: Detail;
@@ -122,6 +194,19 @@ const KIND_WORDS: [RegExp, SessionKind | 'study'][] = [
 
 function kindIn(text: string): SessionKind | 'study' | null {
   for (const [re, k] of KIND_WORDS) if (re.test(text)) return k;
+  return null;
+}
+
+type Section = 'meta' | 'techniques' | 'rounds' | 'problems' | 'injuries' | 'notes';
+
+/** "### Rounds" and friends. Null when a heading isn't a section. */
+function sectionIn(h: string): Section | null {
+  const t = h.toLowerCase();
+  if (/^(rolls?|rounds?|sparring|spar|matches|match)\b/.test(t)) return 'rounds';
+  if (/^(techniques?|drilled|covered|taught|moves)\b/.test(t)) return 'techniques';
+  if (/^problems?\b/.test(t)) return 'problems';
+  if (/^(injuries|injury|hurt)\b/.test(t)) return 'injuries';
+  if (/^notes?\b/.test(t)) return 'notes';
   return null;
 }
 
@@ -158,117 +243,201 @@ const splitList = (v: string) =>
 
 const SIZE_WORDS: Record<string, Size> = { smaller: 'smaller', lighter: 'smaller', small: 'smaller', similar: 'similar', same: 'similar', even: 'similar', bigger: 'bigger', heavier: 'bigger', big: 'bigger', larger: 'bigger' };
 
-/** One roll bullet: "Sam (purple, bigger, 6m): hit armbar; tapped to triangle; stuck in half guard". */
+/** "half guard bottom" → position and side. */
+function startOf(v: string): { start: string; role?: Role } {
+  const m = /^(.+?)(?:[\s,(]+(top|bottom)\)?)?$/i.exec(v.trim())!;
+  return { start: resolvePosition(m[1]), ...(m[2] ? { role: m[2].toLowerCase() as Role } : {}) };
+}
+
+function outcomeOf(v: string): Detail['outcome'] | undefined {
+  const t = v.trim().toLowerCase();
+  if (/^(win|won|w)\b/.test(t)) return 'win';
+  if (/^(loss|lost|l)\b/.test(t)) return 'loss';
+  if (/^(draw|tie|d)\b/.test(t)) return 'draw';
+  return undefined;
+}
+
+/** Applies one round detail ("Hit: armbar, kimura") to a round. Returns false for a key it doesn't know. */
+function roundKey(d: Detail, key: string, v: string): boolean {
+  const add = (field: 'subsFor' | 'subsAgainst' | 'landed' | 'tried' | 'stuck', resolve: (s: string) => string) => {
+    d[field] = [...new Set([...(d[field] ?? []), ...splitList(v).map(resolve).filter(Boolean)])];
+  };
+  if (/^(hit|subs?|finished|submitted|got|tapped them with)$/.test(key)) add('subsFor', resolveSub);
+  else if (/^(tapped to|tapped|tapped by|caught (in|by)|lost to)$/.test(key)) add('subsAgainst', resolveSub);
+  else if (/^(landed|pulled off|completed)$/.test(key)) add('landed', resolveTechnique);
+  else if (/^(went for|tried|attempted|missed|didnt land)$/.test(key)) add('tried', resolveTechnique);
+  else if (/^(stuck|stuck in|got stuck|pinned)$/.test(key)) add('stuck', resolvePosition);
+  else if (/^(started from|start|from|position|starting position)$/.test(key)) Object.assign(d, startOf(v));
+  else if (/^(result|outcome)$/.test(key)) d.outcome = outcomeOf(v) ?? d.outcome;
+  else if (key === 'partner') d.partner = v.slice(0, 60);
+  else if (key === 'belt' && BELTS.includes(v.toLowerCase().replace(/\s*belt$/, '') as Belt)) d.belt = v.toLowerCase().replace(/\s*belt$/, '') as Belt;
+  else if (key === 'size' && SIZE_WORDS[v.toLowerCase()]) d.size = SIZE_WORDS[v.toLowerCase()];
+  else if (/^(length|duration|time)$/.test(key) && parseDuration(v)) d.min = parseDuration(v)!;
+  else if (/^notes?$/.test(key)) d.note = [d.note, v].filter(Boolean).join('; ').slice(0, 500);
+  else return false;
+  return true;
+}
+
+/**
+ * One round's first line: "Sam (purple, bigger, 6m)". The older one-line form also works:
+ * "Sam (purple, bigger, 6m): hit armbar; tapped to triangle; stuck in half guard".
+ */
 export function parseRollLine(line: string): Detail {
   const d: Detail = {};
-  let text = line.replace(/^\s*[-*+]\s*/, '').replace(/\*\*/g, '').trim();
-  // Who and tags before the colon.
+  const text = line.replace(/^\s*[-*+]\s*/, '').replace(/\*\*/g, '').trim();
   const colon = text.indexOf(':');
-  let head = colon >= 0 ? text.slice(0, colon) : '';
-  let body = colon >= 0 ? text.slice(colon + 1) : text;
-  if (colon < 0 && !/\b(hit|got|finished|tapped|caught|stuck|won|lost|draw|sub|landed|tried|attempted|went for|missed)/i.test(text)) {
-    head = text;
-    body = '';
+  let head = colon >= 0 ? text.slice(0, colon) : text;
+  let body = colon >= 0 ? text.slice(colon + 1) : '';
+  // "- tapped to heel hook": a round without a name, just what happened.
+  if (colon < 0 && /^(hit|got|finished|tapped|caught|stuck|won|lost|draw|landed|tried|attempted|went for|missed)\b/i.test(text)) {
+    head = '';
+    body = text;
   }
   const tags = /\(([^)]*)\)/.exec(head);
   const name = head
     .replace(/\(([^)]*)\)/, '')
     .replace(/^\s*(vs\.?|with|w\/)\s*/i, '')
     .trim();
-  if (name && !/^(round|roll|rolls)$/i.test(name)) d.partner = name.slice(0, 60);
+  if (name && !/^(round|roll|rolls|match)$/i.test(name)) d.partner = name.slice(0, 60);
   for (const tag of tags ? tags[1].split(/[,/]/) : []) {
     const t = tag.trim().toLowerCase().replace(/\s*belt$/, '');
     if (BELTS.includes(t as Belt)) d.belt = t as Belt;
     else if (SIZE_WORDS[t]) d.size = SIZE_WORDS[t];
-    else if (/^(win|won|w)$/.test(t)) d.outcome = 'win';
-    else if (/^(loss|lost|l)$/.test(t)) d.outcome = 'loss';
-    else if (/^(draw|tie)$/.test(t)) d.outcome = 'draw';
-    else if (/^from\s+/.test(t)) {
-      const m = /^from\s+(.+?)(?:\s+(top|bottom))?$/.exec(t)!;
-      d.start = resolvePosition(m[1]);
-      if (m[2]) d.role = m[2] as Role;
-    }
+    else if (/^(win|won|w|loss|lost|l|draw|tie)$/.test(t)) d.outcome = outcomeOf(t);
+    else if (/^from\s+/.test(t)) Object.assign(d, startOf(t.replace(/^from\s+/, '')));
     else if (parseDuration(t)) d.min = parseDuration(t)!;
   }
-  text = body;
-  const subsFor: string[] = [];
-  const subsAgainst: string[] = [];
-  const stuck: string[] = [];
-  const landed: string[] = [];
-  const tried: string[] = [];
   const notes: string[] = [];
-  for (const clause of text.split(/;|\.\s/).map((c) => c.trim()).filter(Boolean)) {
-    let m: RegExpExecArray | null;
-    if ((m = /^(?:landed|pulled off|completed)\s*:?\s*(.+)$/i.exec(clause))) landed.push(...splitList(m[1]).map(resolveTechnique));
-    else if ((m = /^(?:tried|attempted|went for|missed|failed)\s*:?\s*(.+)$/i.exec(clause))) tried.push(...splitList(m[1]).map(resolveTechnique));
-    else if ((m = /^(?:tapped to|tapped by|got tapped (?:by|with)|caught (?:in|with|by)|tapped|lost to)\s*:?\s*(.+)$/i.exec(clause))) subsAgainst.push(...splitList(m[1]).map(resolveSub));
-    else if ((m = /^(?:hit|got|finished|subbed (?:with|them with)?|sub(?:mitted)?(?: with)?|caught them (?:in|with))\s*:?\s*(.+)$/i.exec(clause))) subsFor.push(...splitList(m[1]).map(resolveSub));
-    else if ((m = /^(?:stuck(?: in| at| under)?|got stuck(?: in| under)?|pinned (?:in|under))\s*:?\s*(.+)$/i.exec(clause))) stuck.push(...splitList(m[1]).map(resolvePosition));
-    else if ((m = /^note\s*:?\s*(.+)$/i.exec(clause))) notes.push(m[1]);
-    else if (/^(won|win)\b/i.test(clause)) d.outcome = 'win';
-    else if (/^(lost|loss)\b/i.test(clause)) d.outcome = 'loss';
-    else if (/^draw\b/i.test(clause)) d.outcome = 'draw';
+  for (const clause of body.split(/;|\.\s/).map((c) => c.trim()).filter(Boolean)) {
+    const m = /^(tapped to|tapped by|got tapped (?:by|with)|caught (?:in|with|by)|lost to|went for|got stuck(?: in| under)?|stuck(?: in| at| under)?|pinned (?:in|under)|hit|got|finished|subbed(?: with)?|submitted(?: with)?|landed|pulled off|completed|tried|attempted|missed|note|tapped)\s*:?\s*(.+)$/i.exec(clause);
+    if (m) {
+      const key = m[1]
+        .toLowerCase()
+        .replace(/^got tapped.*|^caught.*/, 'tapped to')
+        .replace(/^(got stuck|stuck|pinned).*/, 'stuck')
+        .replace(/^(subbed|submitted).*/, 'hit');
+      if (roundKey(d, key, m[2])) continue;
+    }
+    const o = outcomeOf(clause);
+    if (o && clause.split(/\s+/).length <= 2) d.outcome = o;
     else notes.push(clause);
   }
-  if (subsFor.length) d.subsFor = subsFor.filter(Boolean);
-  if (subsAgainst.length) d.subsAgainst = subsAgainst.filter(Boolean);
-  if (stuck.length) d.stuck = stuck.filter(Boolean);
-  if (landed.length) d.landed = landed.filter(Boolean);
-  if (tried.length) d.tried = tried.filter(Boolean);
-  if (notes.length) d.note = notes.join('; ').slice(0, 500);
+  if (notes.length) d.note = [d.note, ...notes].filter(Boolean).join('; ').slice(0, 500);
   return d;
 }
 
+const KV = /^\**([A-Za-z][A-Za-z /'’-]{0,30}?)\**\s*:\s*\**\s*(.*)$/;
+const keyOf = (k: string) => k.trim().toLowerCase().replace(/[’']/g, '').replace(/\s*\/\s*/g, ' ');
+
+/** "Left knee (moderate)", or the older "Left knee (moderate): heel hook in round 3". */
+function injuryLine(v: string): ParsedInjury {
+  const m = /^([^():]+?)\s*(?:\((minor|moderate|serious)\))?\s*(?::\s*(.+))?$/i.exec(v.trim());
+  if (!m) return { area: v.trim().slice(0, 60) };
+  return { ...parseArea(m[1]), ...(m[2] ? { severity: m[2].toLowerCase() as ParsedInjury['severity'] } : {}), ...(m[3] ? { how: m[3].trim() } : {}) };
+}
+
 /**
- * Reads one or more class notes. A heading that names a kind of session (class, open mat,
- * drilling, comp) starts a session; a heading with "roll", "round" or "sparring" starts its rolls.
- * Text with no heading at all is one session.
+ * Reads one or more class notes (see NOTE_FORMAT). A heading that names a kind of session starts
+ * a session; `### Techniques`, `### Rounds`, `### Problems`, `### Injuries` and `### Notes` start
+ * sections; sub-bullets add detail to the bullet above them. Text with no heading at all is one class.
  */
 export function parseMarkdown(text: string): ParsedSession[] {
   const out: ParsedSession[] = [];
   let cur: ParsedSession | null = null;
-  let inRolls = false;
+  let section: Section = 'meta';
   const notes = new Map<ParsedSession, string[]>();
-  const ensure = (): ParsedSession => {
-    if (!cur) {
-      cur = { type: 'class', at: null, detail: {}, rolls: [], problems: [] };
-      out.push(cur);
-      notes.set(cur, []);
-    }
-    return cur;
+  const start = (type: SessionKind | 'study', at: number | null): ParsedSession => {
+    const s: ParsedSession = { type, at, detail: {}, rolls: [], problems: [] };
+    cur = s;
+    out.push(s);
+    notes.set(s, []);
+    section = 'meta';
+    return s;
   };
+  const ensure = (): ParsedSession => cur ?? start('class', null);
+  const lastTech = (s: ParsedSession) => s.detail.techniques?.[s.detail.techniques.length - 1];
 
-  for (const raw of text.replace(/\r\n?/g, '\n').split('\n')) {
+  for (const raw of text.replace(/\r\n?/g, '\n').replace(/\t/g, '  ').split('\n')) {
     const line = raw.trim();
     if (!line || /^_?exported from matlog/i.test(line.replace(/_/g, ''))) continue;
+    const indent = raw.length - raw.trimStart().length;
     const heading = /^#{1,6}\s+(.*)$/.exec(line);
     if (heading) {
-      const h = heading[1];
-      if (/\b(rolls?|rounds?|sparring|spar)\b/i.test(h) && !kindIn(h.replace(/\b(rolls?|rounds?|sparring|spar)\b/gi, ''))) {
+      const h = heading[1].trim();
+      const sec = sectionIn(h);
+      if (sec) {
         ensure();
-        inRolls = true;
+        section = sec;
         continue;
       }
       const k = kindIn(h);
-      // A top-level export title ("Training log · …") with sessions under it isn't a session.
-      if (k && !(/^#\s/.test(line) && /training log|'s training/i.test(h))) {
-        cur = { type: k, at: parseDate(h), detail: {}, rolls: [], problems: [] };
-        out.push(cur);
-        notes.set(cur, []);
-        inRolls = false;
-      }
+      // An export's title ("# Training log: …") isn't a session.
+      if (k && !(/^#\s/.test(line) && /training log|'s training/i.test(h))) start(k, parseDate(h));
       continue;
     }
     const s = ensure();
     const bullet = /^[-*+]\s+/.test(line);
-    if (inRolls && bullet) {
-      s.rolls.push({ detail: parseRollLine(line) });
+    const body = line.replace(/^[-*+]\s+/, '').replace(/^\[[ x]\]\s*/i, '');
+    const sub = bullet && indent >= 2;
+    const kv = KV.exec(body);
+    const key = kv ? keyOf(kv[1]) : '';
+    const v = kv ? kv[2].trim() : '';
+
+    if (section === 'notes') {
+      notes.get(s)!.push(raw.replace(/\s+$/, '').replace(/^ {0,3}/, ''));
       continue;
     }
-    const kv = /^(?:[-*+]\s+)?\**([A-Za-z][A-Za-z /-]{0,30}?)\**\s*:\s*\**\s*(.*)$/.exec(line);
+    if (section === 'techniques') {
+      if (sub) {
+        const t = lastTech(s);
+        if (!t) continue;
+        const kind: TechNoteKind = /^(key detail|detail|key)$/.test(key) ? 'detail' : key === 'question' ? 'question' : /^(source|link|video|instructional)$/.test(key) ? 'source' : 'observation';
+        const value = kv && /^(key detail|detail|key|question|source|link|video|instructional|observation|note|noticed)$/.test(key) ? v : body;
+        const url = /\(?(https?:\/\/[^\s)]+)\)?\s*$/.exec(value);
+        const textOnly = url ? value.replace(url[0], '').trim() : value;
+        if (textOnly || url) (s.techNotes ??= []).push({ technique: t, kind, text: textOnly || url![1], ...(url ? { url: url[1] } : {}) });
+        continue;
+      }
+      const name = body.replace(/:\s*$/, '').trim();
+      if (name) s.detail.techniques = [...new Set([...(s.detail.techniques ?? []), resolveTechnique(name)])];
+      continue;
+    }
+    if (section === 'rounds') {
+      if (sub && s.rolls.length) {
+        const d = s.rolls[s.rolls.length - 1].detail;
+        if (!(kv && roundKey(d, key, v))) d.note = [d.note, body].filter(Boolean).join('; ').slice(0, 500);
+        continue;
+      }
+      s.rolls.push({ detail: parseRollLine(body) });
+      continue;
+    }
+    if (section === 'problems') {
+      if (sub && s.problems.length) {
+        const p = s.problems[s.problems.length - 1];
+        if (kv && /^(idea|idea to try|solution|fix|try)$/.test(key)) p.idea = v;
+        else if (kv && key === 'source') p.source = /told|coach|partner|external/i.test(v) ? 'external' : /coming|predict/i.test(v) ? 'predictive' : 'internal';
+        else p.idea = [p.idea, body].filter(Boolean).join('; ');
+        continue;
+      }
+      s.problems.push({ text: body.replace(/\s*\(solved\)\s*$/i, ''), solved: /\(solved\)\s*$/i.test(body), source: 'internal' });
+      continue;
+    }
+    if (section === 'injuries') {
+      const list = (s.injuries ??= []);
+      if (sub && list.length) {
+        const i = list[list.length - 1];
+        if (kv && /^(how|what happened)$/.test(key)) i.how = v;
+        else if (kv && /^(training around it|around|avoiding|modifications?)$/.test(key)) i.around = v;
+        else if (kv && key === 'severity' && /^(minor|moderate|serious)$/i.test(v)) i.severity = v.toLowerCase() as ParsedInjury['severity'];
+        else i.how = [i.how, body].filter(Boolean).join('; ');
+        continue;
+      }
+      list.push(injuryLine(body));
+      continue;
+    }
+
+    // Session details (and the older one-line forms).
     if (kv) {
-      const key = kv[1].trim().toLowerCase().replace(/\s*\/\s*/g, ' ');
-      const v = kv[2].trim();
       if (/^(type|kind|session)$/.test(key)) {
         const k = kindIn(v);
         if (k) s.type = k;
@@ -289,8 +458,13 @@ export function parseMarkdown(text: string): ParsedSession[] {
         s.detail.attire = no ? 'nogi' : 'gi';
         continue;
       }
+      if (/^(topic|theme|class topic)$/.test(key)) {
+        if (v) s.detail.topic = v.slice(0, 120);
+        continue;
+      }
       if (/^(techniques?|tech|drilled|covered|moves?|taught)$/.test(key)) {
-        s.detail.techniques = [...(s.detail.techniques ?? []), ...splitList(v).map(resolveTechnique)];
+        if (v) s.detail.techniques = [...new Set([...(s.detail.techniques ?? []), ...splitList(v).map(resolveTechnique)])];
+        else section = 'techniques';
         continue;
       }
       if (/^(enjoy|enjoyed|enjoyment|fun)$/.test(key)) {
@@ -305,14 +479,14 @@ export function parseMarkdown(text: string): ParsedSession[] {
         else if (/^(no|n|not)/.test(p)) s.detail.plan = 'no';
         continue;
       }
-      if (/^(problem|problem i hit|problem i hit today|problems?)$/.test(key)) {
+      if (/^(problem|problem i hit|problem i hit today|problems)$/.test(key)) {
         if (v) s.problems.push({ text: v.replace(/\s*\(solved\)\s*$/i, ''), solved: /\(solved\)\s*$/i.test(v), source: 'internal' });
+        else section = 'problems';
         continue;
       }
-      if (/^(injury|injured|hurt|tweaked)$/.test(key)) {
-        // "Left knee (moderate): heel hook in round 3"
-        const m = /^([^():]+?)\s*(?:\((minor|moderate|serious)\))?\s*(?::\s*(.+))?$/i.exec(v);
-        if (m) (s.injuries ??= []).push({ ...parseArea(m[1]), ...(m[2] ? { severity: m[2].toLowerCase() as ParsedInjury['severity'] } : {}), ...(m[3] ? { how: m[3].trim() } : {}) });
+      if (/^(injury|injuries|injured|hurt|tweaked)$/.test(key)) {
+        if (v) (s.injuries ??= []).push(injuryLine(v));
+        else section = 'injuries';
         continue;
       }
       if (/^(idea|idea to try|idea to try solution|solution|fix)$/.test(key)) {
@@ -321,35 +495,35 @@ export function parseMarkdown(text: string): ParsedSession[] {
         else if (v) notes.get(s)!.push(`Idea: ${v}`);
         continue;
       }
-      if (/^(source|from|instructional|video)$/.test(key) && s.type === 'study') {
+      if (/^(source|instructional|video)$/.test(key) && s.type === 'study') {
         const url = /\((https?:[^)]+)\)\s*$/.exec(v) ?? /^(https?:\S+)$/.exec(v);
         s.detail.source = v.replace(/\s*\((https?:[^)]+)\)\s*$/, '').slice(0, 200);
         if (url) s.detail.url = url[1];
         continue;
       }
       if (/^(notes?)$/.test(key)) {
-        notes.get(s)!.push(v);
+        if (v) notes.get(s)!.push(v);
+        else section = 'notes';
         continue;
       }
-      if (/^(rolls?|rounds?)$/.test(key)) {
-        inRolls = true;
+      if (/^(rolls?|rounds?|matches)$/.test(key)) {
+        section = 'rounds';
         if (v) s.rolls.push({ detail: parseRollLine(v) });
         continue;
       }
     }
-    notes.get(s)!.push(line.replace(/^[-*+>]\s+/, ''));
+    notes.get(s)!.push(body);
   }
   for (const s of out) {
     const n = notes.get(s)!.join('\n').trim();
     if (n) s.detail.note = n.slice(0, 2000);
-    // A date heading without a "Date:" line ("## Class 2026-10-08 18:00") was read above.
   }
-  return out.filter((s) => s.at !== null || Object.keys(s.detail).length || s.rolls.length || s.problems.length || s.injuries?.length);
+  return out.filter((s) => s.at !== null || Object.keys(s.detail).length || s.rolls.length || s.problems.length || s.injuries?.length || s.techNotes?.length);
 }
 
 /**
  * Turns parsed notes into events. A session without a date ended at `now`; rounds are laid out
- * one after another inside it (their own length, or `roundMin`, 5 by default), so they belong to it by time.
+ * one after another inside it (their own length, or `roundMin`, 5 by default) and linked to it.
  */
 export function notesToEvents(parsed: ParsedSession[], now: number, defaultMin = 60, roundMin = kindById('roll').defaultMin): LogEvent[] {
   const out: LogEvent[] = [];
@@ -358,6 +532,7 @@ export function notesToEvents(parsed: ParsedSession[], now: number, defaultMin =
     const at = p.at ?? now - min * MIN;
     const session = createEvent(p.type, at, { ...p.detail, min }, now);
     out.push(session);
+    for (const n of p.techNotes ?? []) out.push(newTechNote(n.technique, n.text, now, { kind: n.kind, url: n.url }));
     for (const inj of p.injuries ?? []) out.push(newInjury(Math.min(at + min * MIN, now), { ...inj, sessionId: session.id }, now));
     for (const pr of p.problems) out.push(newProblem(pr.text, now, { idea: pr.idea, source: pr.source, sessionId: session.id, solvedAt: pr.solved ? now : undefined }));
     let t = at + 60_000;

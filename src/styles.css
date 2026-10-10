@@ -2005,3 +2005,26 @@ dialog.clock[data-phase='rest'] {
   border-color: var(--border);
   color: var(--text);
 }
+
+/* ---------- Paste: the format ---------- */
+pre.format {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+ul.rules {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  font-size: 0.86rem;
+  display: grid;
+  gap: 4px;
+}
+ul.rules code {
+  font-size: 0.8rem;
+}

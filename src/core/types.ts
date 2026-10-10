@@ -17,6 +17,8 @@ export type Outcome = 'win' | 'loss' | 'draw';
 /** Optional detail. Nothing here is ever required to log an event. */
 export interface Detail {
   attire?: Attire; // session, roll
+  /** What a class was about ("Half guard passing"); free text, linked when it names a technique or position. */
+  topic?: string;
   /** Technique ids (see catalog.ts) or free text for your own. Sessions. */
   techniques?: string[];
   /** Length in minutes, for entries logged after the fact without start/stop. */
@@ -110,6 +112,10 @@ export interface CustomTechnique {
   from: string;
   to: string;
   aka?: string[];
+  /** A variation of another technique (its id). */
+  parent?: string;
+  /** Built-ins only: left out of suggestions. */
+  hidden?: boolean;
 }
 
 export type TechNoteKind = 'detail' | 'observation' | 'question' | 'source';

@@ -48,19 +48,54 @@ When you control the page (Playwright `page.evaluate`, DevTools, a browser agent
 - `matlog.heal(id)`: mark an injury healed
 - `matlog.techniqueNotes(technique, text?, opts?)`: `{ technique, notes }`; with text, adds a note: opts `{ kind: 'detail'|'observation'|'question'|'source', url }`
 
-## Class note format
+## Class note format (v2)
 
+Paste this into the app (Paste a note, or `matlog.importMarkdown(text)`); exports use it too. Older forms (comma lists, one-line rounds) still import.
+
+```markdown
+## Class
+- Date: 2026-10-08 18:00
+- Length: 90m
+- Gi: no-gi
+- Topic: Half guard passing
+
+### Techniques
+- Knee cut pass
+  - Key detail: underhook the far arm first
+- Shoulder post wrist grab arm drag
+
+### Rounds
+- Sam (purple, bigger)
+  - Started from: half guard bottom
+  - Hit: armbar
+  - Tapped to: triangle
+  - Landed: knee cut
+  - Stuck: half guard
+
+### Problems
+- Got flattened in half guard
+  - Idea: knee shield first
+
+### Injuries
+- Left knee (minor)
+  - How: heel hook
+  - Training around it: no leg locks
+
+### Notes
+Anything else, as free text.
 ```
-## No-gi class 2026-10-08 18:00
-Length: 90m
-Techniques: knee cut, arm triangle
-Anything else is the note.
 
-### Rolls
-- Sam (purple, bigger, 6m): hit armbar; tapped to triangle; landed knee cut; tried berimbolo; stuck in half guard
-```
+- `## Class` starts a session: Class, Open mat, Drilling, Comp or Study. Several sessions can follow each other.
+- Session details are bullets: Date (YYYY-MM-DD HH:MM), Length (90m, 1h30), Gi (gi or no-gi), Topic, Enjoyed (1–5), Followed my plan (yes, partly, no). Study also takes Source.
+- `### Techniques`: one technique per bullet. Sub-bullets add notes to it: Key detail, Observation, Question, Source (a link in brackets works).
+- `### Rounds` (or Rolls, Matches): one partner per bullet, with belt, size and length in brackets. Sub-bullets: Started from (a position, then top or bottom), Hit, Tapped to, Landed, Went for, Stuck, Result (win, draw, loss), Note. Lists are comma-separated.
+- `### Problems`: one problem per bullet, `(solved)` at the end if it is. Sub-bullet: Idea.
+- `### Injuries`: one per bullet, like `Left knee (minor)`. Sub-bullets: How, Training around it.
+- `### Notes`: free text. Anything matlog doesn’t recognise also ends up in the note.
 
-A heading naming a session (class, open mat, drilling, comp, study) starts one; a "Rolls" heading lists rounds. Keys: Date, Length, Gi, Techniques, Note, Type, Enjoyed, Followed my plan, Problem I hit today, Idea to try, Injury (`left knee (minor): heel hook`). Plain text with no headings is one class.
+### Turning messy notes into this format
+
+To turn a voice memo or quick notes into a class note with a chat assistant, give it the format above and these rules: only include what the person said (no invented rounds, partners, submissions or times); keep their own words for problems, ideas and notes; no advice; leave out the Date line if they didn't say when. The app's Paste dialog has a "Copy prompt for an AI" button that builds this prompt with the person's own technique names. There is also a Claude skill in the repo: `skills/matlog-note/SKILL.md`.
 
 ## Common agent recipes
 

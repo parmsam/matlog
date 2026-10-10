@@ -14,7 +14,7 @@ test('window.matlog: help, logging, state, markdown round trip', async ({ page }
   await expect(page.evaluate(() => window.matlog.log('yoga'))).rejects.toThrow(/don't know/);
   const md = await page.evaluate(() => window.matlog.markdown(1));
   expect(md).toContain('## Class');
-  expect(md).toContain('Sam (purple, 5m): hit Armbar; tapped to Triangle; stuck in Half guard');
+  expect(md).toContain('### Rounds\n- Sam (purple, 5m)\n  - Hit: Armbar\n  - Tapped to: Triangle\n  - Stuck: Half guard');
   const parsed = await page.evaluate((md) => window.matlog.parseMarkdown(md), md);
   expect(parsed[0]).toMatchObject({ type: 'class', min: 90, attire: 'gi' });
 });

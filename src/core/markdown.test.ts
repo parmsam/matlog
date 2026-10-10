@@ -83,8 +83,8 @@ Good energy tonight.
     expect(s).toMatchObject({ type: 'class', at: null, detail: { note: 'Worked on guard passing today.\nRolled 5 rounds.' } });
   });
   it('reads several sessions and the type key', () => {
-    const list = parseMarkdown('## Open mat\n- Date: 2026-10-01 10:00\n\n## Drilling\n- Length: 45m\n\n## Notes\n- Type: competition');
-    // A Type: line under a heading that isn't a session ("Notes") applies to the session above it.
+    const list = parseMarkdown('## Open mat\n- Date: 2026-10-01 10:00\n\n## Drilling\n- Length: 45m\n\n## Details\n- Type: competition');
+    // A Type: line under a heading that isn't a session or a section ("Details") applies to the session above it.
     expect(list.map((s) => s.type)).toEqual(['open-mat', 'comp']);
   });
   it('round-trips an export', () => {
@@ -154,6 +154,53 @@ describe('injuries in notes', () => {
     const events = notesToEvents([s], now);
     const inj = events.find((e) => e.type === 'injury')!;
     expect(inj.detail!.injury).toMatchObject({ area: 'knee', side: 'left', sessionId: events[0].id });
-    expect(toMarkdown(events, '2026-10-08', '2026-10-08', now)).toContain('- Injury: Left knee (moderate): heel hook in round 3');
+    expect(toMarkdown(events, '2026-10-08', '2026-10-08', now)).toContain('### Injuries\n- Left knee (moderate)\n  - How: heel hook in round 3');
+  });
+});
+
+describe('note format v2', () => {
+  it('reads the documented format', async () => {
+    const { NOTE_FORMAT } = await import('./markdown');
+    const [s] = parseMarkdown(NOTE_FORMAT);
+    expect(s.type).toBe('class');
+    expect(s.at).toBe(at(2026, 10, 8, 18));
+    expect(s.detail).toMatchObject({ min: 90, attire: 'nogi', topic: 'Half guard passing', techniques: ['knee-cut', 'Shoulder post wrist grab arm drag'], note: 'Anything else, as free text.' });
+    expect(s.techNotes).toEqual([{ technique: 'knee-cut', kind: 'detail', text: 'underhook the far arm first' }]);
+    expect(s.rolls[0].detail).toEqual({ partner: 'Sam', belt: 'purple', size: 'bigger', start: 'half-guard', role: 'bottom', subsFor: ['armbar'], subsAgainst: ['triangle'], landed: ['knee-cut'], stuck: ['half-guard'] });
+    expect(s.problems).toEqual([{ text: 'Got flattened in half guard', idea: 'knee shield first', solved: false, source: 'internal' }]);
+    expect(s.injuries).toEqual([{ area: 'knee', side: 'left', severity: 'minor', how: 'heel hook', around: 'no leg locks' }]);
+  });
+  it('round-trips everything through export', async () => {
+    const { newProblem } = await import('./notebook');
+    const { newInjury } = await import('./injuries');
+    const now = at(2026, 10, 9, 20);
+    const s = ev('class', at(2026, 10, 8, 18), { min: 90, attire: 'nogi', topic: 'Half guard passing', techniques: ['knee-cut', 'My thing'], enjoy: 4, plan: 'partly', note: 'Line one\nLine two' });
+    const r = ev('roll', at(2026, 10, 8, 18, 30), { min: 5, partner: 'Sam', belt: 'purple', start: 'half-guard', role: 'bottom', subsFor: ['armbar', 'kimura'], tried: ['berimbolo'], outcome: 'win', sessionId: s.id });
+    const p = newProblem('flattened', now, { idea: 'frames', sessionId: s.id, solvedAt: now });
+    const i = newInjury(at(2026, 10, 8, 19), { area: 'knee', side: 'left', severity: 'minor', how: 'heel hook', around: 'no leg locks', sessionId: s.id }, now);
+    const md = toMarkdown([s, r, p, i], '2026-10-08', '2026-10-08', now);
+    expect(md).not.toContain('·');
+    const [back] = parseMarkdown(md);
+    expect(back.at).toBe(s.at);
+    expect(back.detail).toMatchObject({ min: 90, attire: 'nogi', topic: 'Half guard passing', techniques: ['knee-cut', 'My thing'], enjoy: 4, plan: 'partly', note: 'Line one\nLine two' });
+    expect(back.rolls[0].detail).toEqual({ partner: 'Sam', belt: 'purple', min: 5, start: 'half-guard', role: 'bottom', subsFor: ['armbar', 'kimura'], tried: ['berimbolo'], outcome: 'win' });
+    expect(back.problems).toEqual([{ text: 'flattened', idea: 'frames', solved: true, source: 'internal' }]);
+    expect(back.injuries).toEqual([{ area: 'knee', side: 'left', severity: 'minor', how: 'heel hook', around: 'no leg locks' }]);
+  });
+  it('turns technique sub-bullets into notes on the technique', () => {
+    const [s] = parseMarkdown('## Drilling\n### Techniques\n- Knee cut\n  - Key detail: knee to the mat\n  - Question: what about the knee shield?\n  - Source: half guard series (https://example.com/v)\n  - works better on smaller people');
+    expect(s.techNotes).toEqual([
+      { technique: 'knee-cut', kind: 'detail', text: 'knee to the mat' },
+      { technique: 'knee-cut', kind: 'question', text: 'what about the knee shield?' },
+      { technique: 'knee-cut', kind: 'source', text: 'half guard series', url: 'https://example.com/v' },
+      { technique: 'knee-cut', kind: 'observation', text: 'works better on smaller people' },
+    ]);
+    const events = notesToEvents([s], at(2026, 10, 9));
+    expect(events.filter((e) => e.type === 'technote')).toHaveLength(4);
+  });
+  it('still reads the older forms', () => {
+    const [s] = parseMarkdown('## Class 2026-10-08 18:00\nTechniques: knee slice, armbar from guard\n\n### Rolls\n- Sam (purple): hit armbar; tapped to triangle');
+    expect(s.detail.techniques).toEqual(['knee-cut', 'armbar-guard']);
+    expect(s.rolls[0].detail).toMatchObject({ partner: 'Sam', subsFor: ['armbar'], subsAgainst: ['triangle'] });
   });
 });

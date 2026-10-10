@@ -1,4 +1,4 @@
-import { allTechniques, POSITIONS, positionLabel, resolvePosition, resolveSub, resolveTechnique, subLabel, SUBMISSIONS, techniqueLabel, TECHNIQUES } from '../core/catalog';
+import { techniqueById, visibleTechniques, POSITIONS, positionLabel, resolvePosition, resolveSub, resolveTechnique, subLabel, SUBMISSIONS, techniqueLabel } from '../core/catalog';
 import { createEvent, isSession, isTimedType, SESSION_KINDS } from '../core/events';
 import { fromLocalInput, toLocalInput } from '../core/format';
 import { kindById, ongoingRoll, ongoingSession, type KindId } from '../core/kinds';
@@ -59,7 +59,8 @@ function tags(field: 'techniques' | 'subsFor' | 'subsAgainst' | 'stuck' | 'lande
   const list = draft.detail[field] ?? [];
   const chips = list.map((id) => `<button type="button" class="tag-chip" data-untag="${field}" data-value="${esc(id)}" aria-label="Remove ${esc(label(id))}">${esc(label(id))}</button>`).join('');
   const sug = suggestions
-    .filter(([id]) => !list.includes(id))
+    // Techniques you've hidden stay out of every suggestion list, recent ones included.
+    .filter(([id]) => !list.includes(id) && !techniqueById(id)?.hidden)
     .slice(0, 6)
     .map(([id, l]) => `<button type="button" class="pick" data-tag="${field}" data-value="${esc(id)}">+ ${esc(l)}</button>`)
     .join('');
@@ -70,9 +71,10 @@ function tags(field: 'techniques' | 'subsFor' | 'subsAgainst' | 'stuck' | 'lande
 
 function datalists(): string {
   const partners = rollStats(app.get().events).partners.map((p) => p.label);
-  return `<datalist id="dl-tech">${allTechniques().map((t) => `<option value="${esc(t.label)}"></option>`).join('')}</datalist>
+  return `<datalist id="dl-tech">${visibleTechniques().map((t) => `<option value="${esc(t.label)}"></option>`).join('')}</datalist>
     <datalist id="dl-subs">${SUBMISSIONS.map((s) => `<option value="${esc(s.label)}"></option>`).join('')}</datalist>
     <datalist id="dl-pos">${POSITIONS.filter((p) => p.id !== 'submission').map((p) => `<option value="${esc(p.label)}"></option>`).join('')}</datalist>
+    <datalist id="dl-topics">${[...new Set([...app.get().events.filter((e) => !e.deleted && e.detail?.topic).sort((a, b) => b.at - a.at).map((e) => e.detail!.topic!), ...POSITIONS.filter((p) => p.id !== 'submission').map((p) => p.label), ...visibleTechniques().map((t) => t.label)])].slice(0, 120).map((t) => `<option value="${esc(t)}"></option>`).join('')}</datalist>
     <datalist id="dl-partners">${partners.map((p) => `<option value="${esc(p)}"></option>`).join('')}</datalist>`;
 }
 
@@ -98,11 +100,12 @@ function sessionFields(): string {
   const d = draft.detail;
   const kinds = SESSION_KINDS.map((k) => [k, `${kindById(k).emoji} ${kindById(k).label}`] as [string, string]);
   const recent = techniqueUses(app.get().events).map((u) => [u.id, u.label] as [string, string]);
-  const sug = recent.length ? recent : TECHNIQUES.slice(0, 8).map((t) => [t.id, t.label] as [string, string]);
+  const sug = recent.length ? recent : visibleTechniques().slice(0, 8).map((t) => [t.id, t.label] as [string, string]);
   const rounds = existing && sessionLike(existing.type) ? rollsIn(existing, app.get().events, Date.now()).length : 0;
   return [
     picks('type', kinds, draft.type, 'Session'),
     picks<Attire>('attire', [['gi', 'Gi'], ['nogi', 'No-gi']], d.attire, 'Gi or no-gi'),
+    `<label class="field"><span class="field-label">Topic (optional)</span><input type="text" data-f="topic" value="${esc(d.topic ?? '')}" list="dl-topics" maxlength="120" autocomplete="off" placeholder="what the class was about, e.g. half guard passing" /></label>`,
     tags('techniques', 'Techniques', techniqueLabel, sug, 'Search or add a technique…', 'dl-tech'),
     timeFields(),
     section('note', 'Note', n(d.note?.trim()), noteField()),
@@ -148,7 +151,7 @@ function studyFields(): string {
       <input type="text" data-f="source" value="${esc(d.source ?? '')}" placeholder="an instructional, a coach's video, your notes" maxlength="200" autocomplete="off" /></label>
     <label class="field"><span class="field-label">Link (optional)</span>
       <input type="url" data-f="url" value="${esc(d.url ?? '')}" placeholder="https://" autocomplete="off" /></label>
-    ${tags('techniques', 'Techniques', techniqueLabel, recent.length ? recent : TECHNIQUES.slice(0, 8).map((t) => [t.id, t.label] as [string, string]), 'Search or add a technique…', 'dl-tech')}
+    ${tags('techniques', 'Techniques', techniqueLabel, recent.length ? recent : visibleTechniques().slice(0, 8).map((t) => [t.id, t.label] as [string, string]), 'Search or add a technique…', 'dl-tech')}
     ${timeFields()}
     ${section('note', 'Note', n(d.note?.trim()), noteField())}`;
 }
@@ -161,7 +164,7 @@ function rollFields(): string {
   // Moves: what you drill and try most, then the catalog's sweeps, passes and takedowns.
   const moveSug = [
     ...techniqueUses(app.get().events).sort((a, b) => b.attempts + b.sessions - (a.attempts + a.sessions)).map((u) => [u.id, u.label] as [string, string]),
-    ...allTechniques().filter((t) => t.kind !== 'submission').map((t) => [t.id, t.label] as [string, string]),
+    ...visibleTechniques().filter((t) => t.kind !== 'submission').map((t) => [t.id, t.label] as [string, string]),
   ].filter(([id], i, a) => a.findIndex(([x]) => x === id) === i);
   const stuckSug = [...st.stuck.map((c) => [c.id, c.label] as [string, string]), ...POSITIONS.filter((p) => p.id !== 'submission').map((p) => [p.id, p.label] as [string, string])].filter(([id], i, a) => a.findIndex(([x]) => x === id) === i);
   const starts = POSITIONS.filter((p) => p.id !== 'submission');
@@ -325,6 +328,7 @@ function wire() {
     const f = el.dataset.f;
     if (f === 'partner') draft.detail.partner = el.value;
     else if (f === 'source') draft.detail.source = el.value;
+    else if (f === 'topic') draft.detail.topic = el.value;
     else if (f === 'url') draft.detail.url = el.value;
     else if (f === 'start') draft.detail.start = el.value || undefined;
     else if (f === 'note') draft.detail.note = el.value;

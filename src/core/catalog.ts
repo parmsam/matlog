@@ -41,6 +41,10 @@ export interface Technique {
   to: string;
   /** Other names people type. */
   aka?: string[];
+  /** A variation of another technique (its id). */
+  parent?: string;
+  /** Left out of suggestions (built-ins you don't use). Still recognised when typed. */
+  hidden?: boolean;
 }
 
 const t = (id: string, label: string, kind: TechKind, from: string, to: string, aka?: string[]): Technique => ({ id, label, kind, from, to, aka });
@@ -187,12 +191,23 @@ export const subLabel = (id: string) => SUBMISSIONS.find((s) => s.id === id)?.la
  * was first typed as, so entries logged before it was defined link up on their own.
  */
 let custom: Technique[] = [];
-export function setCustomTechniques(list: Technique[]) {
+/** Your changes to built-in techniques (name, other names, type, positions, parent, hidden), by id. */
+let overrides = new Map<string, Partial<Technique>>();
+export function setCustomTechniques(list: Technique[], changes: Map<string, Partial<Technique>> = new Map()) {
   custom = list;
+  overrides = changes;
 }
 export const customTechniques = () => custom;
-export const allTechniques = () => (custom.length ? [...TECHNIQUES, ...custom] : TECHNIQUES);
+const withOverride = (t: Technique): Technique => (overrides.has(t.id) ? { ...t, ...overrides.get(t.id), id: t.id } : t);
+/** Built-ins (with your changes) and your own, hidden ones included. */
+export const allTechniques = (): Technique[] => (custom.length || overrides.size ? [...TECHNIQUES.map(withOverride), ...custom] : TECHNIQUES);
+/** What suggestions offer: everything but the ones you've hidden. */
+export const visibleTechniques = () => allTechniques().filter((t) => !t.hidden);
 export const isCustom = (id: string) => custom.some((t) => t.id === id);
+export const isBuiltIn = (id: string) => TECHNIQUES.some((t) => t.id === id);
+export const hasOverride = (id: string) => overrides.has(id);
+/** Techniques marked as variations of this one. */
+export const variationsOf = (id: string) => allTechniques().filter((t) => t.parent === id);
 
 export const TECH_KINDS: { id: TechKind; label: string }[] = [
   { id: 'takedown', label: 'Takedown' },
@@ -210,7 +225,10 @@ export function resolveTechnique(text: string): string {
   const hit = allTechniques().find((x) => x.id === n || norm(x.id) === n || norm(x.label) === n || x.aka?.some((a) => norm(a) === n));
   return hit?.id ?? text.trim();
 }
-export const techniqueById = (id: string) => TECHNIQUES.find((x) => x.id === id) ?? custom.find((x) => x.id === id);
+export function techniqueById(id: string): Technique | undefined {
+  const base = TECHNIQUES.find((x) => x.id === id);
+  return base ? withOverride(base) : custom.find((x) => x.id === id);
+}
 export const techniqueLabel = (id: string) => techniqueById(id)?.label ?? id;
 
 /** Resolves typed text to a position id ("half guard bottom" → half-guard), or keeps it. */
