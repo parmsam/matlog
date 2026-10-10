@@ -137,16 +137,121 @@ test('restores from the localStorage mirror when IndexedDB is empty', async ({ p
   await expect.poll(async () => (await storedEvents(page)).length).toBe(1);
 });
 
-test('settings: theme, start belt and focus', async ({ page }) => {
+test('settings: theme, start belt and buddy', async ({ page }) => {
   await open(page);
   await page.keyboard.press(',');
   const s = page.locator('#settings');
   await s.locator('select[name="theme"]').selectOption('gi');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'gi');
   await s.locator('select[name="startBelt"]').selectOption('purple');
-  await s.locator('input[name="focus"]').fill('framing from bottom side');
-  await s.locator('input[name="focus"]').blur();
+  await s.locator('select[name="companion"]').selectOption('octopus');
   await page.keyboard.press('Escape');
   await expect(page.locator('#rank')).toContainText('Purple belt');
-  await expect(page.locator('#focus')).toContainText('framing from bottom side');
+  await expect(page.locator('#companion svg')).toHaveAttribute('data-buddy', 'octopus');
+  await page.keyboard.press(',');
+  await s.locator('select[name="companion"]').selectOption('off');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#companion')).toBeHidden();
+});
+
+test('every buddy draws, and ties its belt on start', async ({ page }) => {
+  await open(page);
+  for (const id of ['grappler', 'bear', 'sloth', 'octopus', 'frog', 'cat']) {
+    await page.evaluate((id) => localStorage.setItem('matlog:v1:settings', JSON.stringify({ splash: false, companion: id })), id);
+    await page.reload();
+    await expect(page.locator('#companion svg')).toHaveAttribute('data-buddy', id);
+  }
+  await card(page, 'class').click();
+  await expect(page.locator('#companion svg')).toHaveClass(/react-tie/);
+  await expect(page.locator('#companion svg')).toHaveAttribute('data-state', 'training');
+});
+
+test('working on: set from the home card, tracked, kept in history', async ({ page }) => {
+  await open(page);
+  await page.locator('#focus').click();
+  const d = page.locator('#focus-sheet');
+  await d.locator('[data-focus]').fill('knee slice from half');
+  await expect(d.locator('[data-match]')).toContainText('Knee cut pass');
+  await d.locator('[data-focus]').press('Enter');
+  await expect(page.locator('#focus')).toContainText('knee slice from half');
+  await page.evaluate(() => window.matlog.log('roll', { landed: 'knee cut' }));
+  await page.evaluate(() => window.matlog.log('roll', { tried: 'knee cut' }));
+  await expect(page.locator('#focus')).toContainText('landed 1 of 2 in rounds');
+  await page.keyboard.press('f');
+  await d.locator('[data-focus]').fill('breathing under side control');
+  await d.getByRole('button', { name: 'Save' }).click();
+  await page.keyboard.press('f');
+  await expect(d.locator('.focus-history')).toContainText('knee slice from half');
+  await d.getByRole('button', { name: 'Use again' }).click();
+  await expect(d.locator('[data-focus]')).toHaveValue('knee slice from half');
+});
+
+test('backup reminder: Back up now and Not now', async ({ page }) => {
+  const old = Date.now() - 10 * 24 * 60 * MIN;
+  const events = Array.from({ length: 6 }, (_, i) => ev('class', old + i * 60 * MIN, { detail: { min: 60 }, createdAt: old + i }));
+  await open(page, { events });
+  const banner = page.locator('#banner');
+  await expect(banner).toContainText('No backup yet');
+  const download = page.waitForEvent('download');
+  await banner.getByRole('button', { name: 'Back up now' }).click();
+  expect((await download).suggestedFilename()).toMatch(/^matlog-.*\.json$/);
+  await expect(banner).toBeHidden();
+
+  await open(page, { events });
+  await banner.getByRole('button', { name: 'Not now' }).click();
+  await expect(banner).toBeHidden();
+  await page.reload();
+  await expect(page.locator('html[data-ready]')).toBeAttached();
+  await expect(banner).toBeHidden();
+});
+
+test('backup reminder interval is a setting', async ({ page }) => {
+  const old = Date.now() - 10 * 24 * 60 * MIN;
+  await open(page, { events: Array.from({ length: 6 }, (_, i) => ev('class', old + i, { detail: { min: 60 } })), settings: { backupEveryDays: 0 } });
+  await expect(page.locator('#banner')).toBeHidden();
+  await page.keyboard.press(',');
+  await page.locator('#settings [data-backup-every]').selectOption('7');
+  await expect(page.locator('#banner')).toContainText('No backup yet');
+});
+
+test('splash shows by default, a tap dismisses it without logging, and it can be turned off', async ({ page }) => {
+  await open(page, { settings: { splash: true } });
+  const splash = page.locator('.splash');
+  await expect(splash).toBeAttached();
+  await splash.click({ position: { x: 100, y: 300 } });
+  await expect(splash).toHaveCount(0);
+  expect(await storedEvents(page)).toEqual([]);
+  await page.keyboard.press(',');
+  await page.locator('#settings input[name="splash"]').uncheck();
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await expect(page.locator('html[data-ready]')).toBeAttached();
+  await expect(splash).toHaveCount(0);
+});
+
+test('links skip the splash', async ({ page }) => {
+  await open(page, { settings: { splash: true } }, './?do=log&type=class&min=60');
+  await expect(page.locator('.splash')).toHaveCount(0);
+  await expect(toastEl(page)).toContainText('Via link');
+});
+
+test('a round with moves landed and tried', async ({ page }) => {
+  await open(page);
+  await card(page, 'roll').click();
+  await card(page, 'roll').click();
+  const sheet = page.locator('#sheet');
+  const landed = sheet.locator('[data-tags="landed"]');
+  await landed.fill('knee slice');
+  await landed.press('Enter');
+  const tried = sheet.locator('[data-tags="tried"]');
+  await tried.fill('berimbolo');
+  await tried.press('Enter');
+  await sheet.getByRole('button', { name: 'Save' }).click();
+  await expect(page.locator('#entries')).toContainText('↗ Knee cut pass');
+  await page.keyboard.press('t');
+  const row = page.locator('#tech tr', { hasText: 'Knee cut pass' });
+  await expect(row).toContainText('1 of 1');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('g');
+  await expect(page.locator('#progress')).toContainText('Moves in rounds');
 });

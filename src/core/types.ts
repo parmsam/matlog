@@ -28,6 +28,10 @@ export interface Detail {
   subsAgainst?: string[];
   /** Position ids where you got stuck. */
   stuck?: string[];
+  /** Technique ids (sweeps, passes, takedowns…) you landed in the round. */
+  landed?: string[];
+  /** Technique ids you went for but didn't land. */
+  tried?: string[];
   outcome?: Outcome; // comp matches
 
   // Promotions
@@ -55,6 +59,7 @@ export interface LogData {
   events: LogEvent[];
 }
 
+export type CompanionChoice = 'grappler' | 'bear' | 'sloth' | 'octopus' | 'frog' | 'cat' | 'random' | 'off';
 export type ThemeChoice = 'auto' | 'gi' | 'nogi';
 export type ClockFormat = 'auto' | '12h' | '24h';
 export type PatchId = 'p10' | 'p25' | 'p50' | 'p100' | 'p250' | 'p500' | 'p1000';
@@ -70,11 +75,32 @@ export interface Settings {
   defaultMin: number;
   /** Week starts on Monday (1) or Sunday (0). */
   weekStart: 0 | 1;
-  companion: boolean;
+  /** The training buddy, 'random' for a different one each day, or 'off'. */
+  companion: CompanionChoice;
   /** Patches worn on the companion (only unlocked ones show). */
   patches: PatchId[];
   lastBackupAt: number | null;
+  /** Remind to back up after this many days without one; 0 = only the every-30-entries reminder. */
+  backupEveryDays: number;
+  /** New-entry count at which the count reminder was last put off ("Not now"); 0 after a backup. */
+  backupSnoozedAt: number;
+  /** When the time reminder was last put off; it waits a day. 0 after a backup. */
+  backupLaterAt: number;
   tipsSeen: string[];
+  /** A short branded splash while the app opens. */
+  splash: boolean;
+  /** Your belt as of the last visit, so the splash can show it before the log loads. */
+  lastBelt: Belt;
   /** "Working on": what you want to try next class. Shown on the home screen; yours, never suggested. */
   focus: string;
+  /** When the current focus was set (null if none). */
+  focusSince: number | null;
+  /** Earlier focuses, newest first (up to 12). */
+  focusHistory: FocusEntry[];
+}
+
+export interface FocusEntry {
+  text: string;
+  from: number;
+  to: number;
 }

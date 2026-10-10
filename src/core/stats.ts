@@ -147,29 +147,49 @@ export function rollStats(events: LogEvent[], from = -Infinity, to = Infinity): 
 export interface TechUse {
   id: string;
   label: string;
-  /** Sessions it was tagged in. */
+  /** Sessions it was tagged in (drilled or taught). */
   sessions: number;
+  /** Rounds you landed it in, and rounds you went for it (landed or not). */
+  landed: number;
+  attempts: number;
+  /** Last time it was drilled or tried in a round. */
   lastAt: number;
   /** Catalog technique (with positions), or undefined for your own. */
   from?: string;
   to?: string;
 }
 
+/** Every technique you've drilled in a session or tried in a round, newest first. */
 export function techniqueUses(events: LogEvent[]): TechUse[] {
   const m = new Map<string, TechUse>();
-  for (const e of sessions(events)) {
-    for (const id of new Set(e.detail?.techniques ?? [])) {
-      const cur = m.get(id);
-      if (cur) {
-        cur.sessions++;
-        cur.lastAt = Math.max(cur.lastAt, e.at);
-      } else {
-        const t = techniqueById(id);
-        m.set(id, { id, label: techniqueLabel(id), sessions: 1, lastAt: e.at, from: t?.from, to: t?.to });
-      }
+  const get = (id: string, at: number) => {
+    let cur = m.get(id);
+    if (!cur) {
+      const t = techniqueById(id);
+      cur = { id, label: techniqueLabel(id), sessions: 0, landed: 0, attempts: 0, lastAt: at, from: t?.from, to: t?.to };
+      m.set(id, cur);
     }
+    cur.lastAt = Math.max(cur.lastAt, at);
+    return cur;
+  };
+  for (const e of sessions(events)) for (const id of new Set(e.detail?.techniques ?? [])) get(id, e.at).sessions++;
+  for (const r of rolls(events)) {
+    const landed = new Set(r.detail?.landed ?? []);
+    for (const id of landed) {
+      const u = get(id, r.at);
+      u.landed++;
+      u.attempts++;
+    }
+    for (const id of new Set(r.detail?.tried ?? [])) if (!landed.has(id)) get(id, r.at).attempts++;
   }
   return [...m.values()].sort((a, b) => b.lastAt - a.lastAt);
+}
+
+/** Moves tried in rounds, most attempted first: "landed 4 of 7". */
+export function moveStats(events: LogEvent[]): TechUse[] {
+  return techniqueUses(events)
+    .filter((u) => u.attempts > 0)
+    .sort((a, b) => b.attempts - a.attempts || b.landed - a.landed || a.label.localeCompare(b.label));
 }
 
 export interface GraphEdge {
@@ -187,12 +207,15 @@ export function positionGraph(events: LogEvent[]): { edges: GraphEdge[]; nodes: 
   for (const u of techniqueUses(events)) {
     if (!u.from || !u.to) continue;
     const key = `${u.from}>${u.to}`;
+    // Drilled in a session or landed in a round; a miss isn't a path you've taken.
+    const n = u.sessions + u.landed;
+    if (!n) continue;
     const e = edges.get(key) ?? { from: u.from, to: u.to, n: 0, techniques: [] };
-    e.n += u.sessions;
+    e.n += n;
     e.techniques.push(u.label);
     edges.set(key, e);
-    nodes.set(u.from, (nodes.get(u.from) ?? 0) + u.sessions);
-    nodes.set(u.to, (nodes.get(u.to) ?? 0) + u.sessions);
+    nodes.set(u.from, (nodes.get(u.from) ?? 0) + n);
+    nodes.set(u.to, (nodes.get(u.to) ?? 0) + n);
   }
   // Getting stuck counts toward a node too, so it shows up even without techniques from it.
   for (const r of rolls(events)) for (const p of r.detail?.stuck ?? []) if (POSITIONS.some((x) => x.id === p)) nodes.set(p, nodes.get(p) ?? 0);
@@ -302,6 +325,9 @@ export function patterns(events: LogEvent[], now: number): Pattern[] {
   }
   if (rs.subsFor >= 3 && rs.forBy[0]) out.push({ id: 'sub-for', text: `Your most-finished submission is the ${rs.forBy[0].label.toLowerCase()} (${rs.forBy[0].n}).`, basis: plural(rs.subsFor, 'sub') });
   if (rs.subsAgainst >= 3 && rs.againstBy[0]) out.push({ id: 'sub-against', text: `You've tapped to the ${rs.againstBy[0].label.toLowerCase()} most (${rs.againstBy[0].n}).`, basis: plural(rs.subsAgainst, 'tap') });
+  const moves = moveStats(events).filter((m) => m.landed > 0);
+  const topMove = moves.sort((a, b) => b.landed - a.landed || b.attempts - a.attempts)[0];
+  if (topMove && topMove.landed >= 3) out.push({ id: 'move', text: `Your most-landed move in rounds is the ${topMove.label.toLowerCase()}: ${topMove.landed} of ${plural(topMove.attempts, 'attempt')}.`, basis: plural(rolls(events).filter((r) => r.detail?.landed?.length || r.detail?.tried?.length).length, 'round') + ' with moves noted' });
   if (rs.rolls >= MIN_ROLLS && rs.partners[0] && rs.partners[0].n >= 2) out.push({ id: 'partner', text: `You've rolled with ${rs.partners[0].label} most (${rs.partners[0].n} rounds).`, basis: plural(rs.rolls, 'roll') });
 
   if (ss.length >= MIN_SESSIONS) {

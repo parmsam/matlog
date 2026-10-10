@@ -26,6 +26,8 @@ async function seed(page: Page) {
           subs: k % 3 ? subs[k % 6] : undefined,
           tapped: k % 4 === 0 ? subs[(k * 7) % 6] : undefined,
           stuck: k % 3 === 0 ? 'half guard' : k % 5 === 0 ? 'mount' : k % 7 === 0 ? 'side control' : undefined,
+          landed: k % 2 ? techs[k % 5][0] : undefined,
+          tried: k % 3 === 1 ? 'berimbolo' : k % 4 === 0 ? techs[k % 5][0] : undefined,
         });
       }
     }
@@ -34,7 +36,7 @@ async function seed(page: Page) {
   });
 }
 
-const settings = { startBelt: 'blue' as const, startStripes: 2, focus: 'framing from bottom side control', patches: ['p10' as const, 'p25' as const, 'p50' as const], theme: 'auto' as const };
+const settings = { startBelt: 'blue' as const, startStripes: 2, focus: 'knee cut pass', focusSince: Date.now() - 12 * 86_400_000, backupSnoozedAt: 1000, backupLaterAt: Date.now(), patches: ['p10' as const, 'p25' as const, 'p50' as const], theme: 'auto' as const };
 
 test('desktop, progress, techniques', async ({ page }) => {
   await page.setViewportSize({ width: 1180, height: 900 });
@@ -70,4 +72,19 @@ test('mobile, gi theme, round sheet', async ({ page }) => {
   await sheet.evaluate((d) => (d.scrollTop = 0));
   await page.waitForTimeout(300);
   await page.screenshot({ path: 'docs/screenshot-round.png' });
+});
+
+test('buddy gallery', async ({ page }) => {
+  await page.setViewportSize({ width: 860, height: 300 });
+  await open(page);
+  await page.evaluate(async () => {
+    const { buddySvg, BUDDIES } = await import('/matlog/src/ui/companion.ts' as string);
+    const ids = Object.keys(BUDDIES);
+    const row = (theme: string, belt: string, stripes: number) =>
+      `<div data-row style="display:flex;justify-content:center;gap:10px;padding:12px 0 2px"><div style="display:contents">${ids.map((id) => `<figure style="margin:0;width:128px;text-align:center"><div style="height:118px">${buddySvg(id, belt, stripes, theme === 'nogi' ? ['#e9e4d8', '#3b7ddd'] : [])}</div><figcaption style="font:600 13px var(--font);color:var(--muted)">${BUDDIES[id].label}</figcaption></figure>`).join('')}</div></div>`;
+    document.body.innerHTML = `<section style="background:var(--bg);padding-bottom:10px">${row('nogi', 'blue', 2)}</section>`;
+    document.body.style.margin = '0';
+  });
+  await page.evaluate(() => (document.documentElement.dataset.theme = 'gi'));
+  await page.locator('section').screenshot({ path: 'docs/buddies.png' });
 });

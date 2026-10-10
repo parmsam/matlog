@@ -2,7 +2,7 @@ import { addDays, dayDate, dayKey, dayStart } from '../core/days';
 import { duration, hours, plural } from '../core/format';
 import { app, deleteEvent, revertTo, settings } from '../core/log';
 import { toMarkdown } from '../core/markdown';
-import { matMinutes, patterns, PATCHES, rankTimeline, rollStats, sessions, weekHeatmap, weekRecap, type Count } from '../core/stats';
+import { matMinutes, moveStats, patterns, PATCHES, rankTimeline, rollStats, sessions, weekHeatmap, weekRecap, type Count } from '../core/stats';
 import { heatmapSvg } from '../viz/heatmap';
 import { patchSvg } from '../viz/patch';
 import { BELT_LABEL, beltSwatch, copyText, esc, openDialog, sheetHead } from './dom';
@@ -35,6 +35,8 @@ function render() {
   const hm = weekHeatmap(events, today, WEEKS, prefs.weekStart, now);
   const pats = patterns(events, now);
   const steps = rankTimeline(events, prefs, now);
+  const moves = moveStats(events);
+  const moveRounds = events.filter((e) => !e.deleted && e.type === 'roll' && (e.detail?.landed?.length || e.detail?.tried?.length)).length;
 
   const ratio =
     rs.subsFor + rs.subsAgainst
@@ -93,6 +95,14 @@ function render() {
         <div><h4>You tapped to</h4>${bars(rs.againstBy, 'var(--danger)', 'None logged yet.')}</div>
       </div>
       ${byBelt ? `<div class="block">${byBelt}</div>` : ''}
+    </section>
+
+    <section class="block"><h3>Moves in rounds</h3>
+      ${moves.length ? `<p class="basis">Landed, of rounds where you went for it. From ${plural(moveRounds, 'round')} with moves noted.</p>
+      <div class="bars">${moves
+        .slice(0, 8)
+        .map((m) => `<div class="bar-row"><span>${esc(m.label)}</span><span class="track" role="img" aria-label="landed ${m.landed} of ${m.attempts}"><span class="fill" style="display:block;width:${(m.attempts / moves[0].attempts) * 100}%;background:linear-gradient(90deg, var(--accent) 0 ${(m.landed / m.attempts) * 100}%, color-mix(in oklab, var(--accent) 30%, transparent) ${(m.landed / m.attempts) * 100}% 100%)"></span></span><span class="n" style="min-width:3.2em">${m.landed}/${m.attempts}</span></div>`)
+        .join('')}</div>` : '<p class="empty">Note moves you landed or went for when you log a round (sweeps, passes, takedowns, back takes).</p>'}
     </section>
 
     <section class="block"><h3>Where you got stuck</h3>

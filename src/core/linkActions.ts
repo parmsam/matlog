@@ -11,6 +11,7 @@ import type { KindId } from './kinds';
  *   &ago=15  it ended (log) or started (start) 15 minutes ago
  *   &gi=nogi  &tech=knee cut,armbar  &note=…
  *   rolls: &partner=Sam&belt=purple&size=bigger&sub=armbar&tapped=triangle&stuck=half guard&outcome=win
+ *          &landed=knee cut&tried=berimbolo  (moves you landed / went for)
  *
  * Settings never travel in the URL. Parameters are removed once the action has run.
  */
@@ -20,7 +21,7 @@ export type LinkVerb = 'log' | 'start' | 'stop' | 'toggle';
 export type LinkAction = { kind: LinkVerb; what: KindId; detail: Detail; minutesAgo: number } | { kind: 'invalid'; reason: string };
 
 /** Query parameters that belong to an action (removed after it runs). */
-export const LINK_PARAMS = ['do', 'type', 'what', 'min', 'ago', 'gi', 'attire', 'tech', 'partner', 'belt', 'size', 'sub', 'tapped', 'stuck', 'outcome', 'note'] as const;
+export const LINK_PARAMS = ['do', 'type', 'what', 'min', 'ago', 'gi', 'attire', 'tech', 'partner', 'belt', 'size', 'sub', 'tapped', 'stuck', 'landed', 'tried', 'outcome', 'note'] as const;
 
 /** What people (and Siri) actually say. */
 const WHAT: Record<string, KindId> = {
@@ -108,13 +109,17 @@ export function parseLinkAction(search: string): LinkAction | null {
   if (subsAgainst.length) detail.subsAgainst = subsAgainst;
   const stuck = list(q.get('stuck'), resolvePosition);
   if (stuck.length) detail.stuck = stuck;
+  const landed = list(q.get('landed'), resolveTechnique);
+  if (landed.length) detail.landed = landed;
+  const tried = list(q.get('tried'), resolveTechnique);
+  if (tried.length) detail.tried = tried;
   const outcome = q.get('outcome')?.trim().toLowerCase();
   if (outcome) {
     if (!OUTCOMES[outcome]) return { kind: 'invalid', reason: 'outcome is win, loss or draw' };
     detail.outcome = OUTCOMES[outcome];
   }
-  if (what !== 'roll' && (detail.partner || detail.belt || detail.size || subsFor.length || subsAgainst.length || stuck.length || detail.outcome))
-    return { kind: 'invalid', reason: 'partner, belt, size, sub, tapped, stuck and outcome are for type=roll' };
+  if (what !== 'roll' && (detail.partner || detail.belt || detail.size || subsFor.length || subsAgainst.length || stuck.length || landed.length || tried.length || detail.outcome))
+    return { kind: 'invalid', reason: 'partner, belt, size, sub, tapped, stuck, landed, tried and outcome are for type=roll' };
 
   const note = q.get('note')?.trim().slice(0, MAX_NOTE);
   if (note) detail.note = note;

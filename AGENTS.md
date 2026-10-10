@@ -27,6 +27,8 @@ BJJ training journal: one-tap logging of sessions and rounds, plus descriptive v
 - **Vocabulary**: positions, techniques and submissions live in `src/core/catalog.ts`. Unknown text is kept as free text, never rejected.
 - **Stats are descriptive only.** Say what happened and what it's based on, hide below a minimum, and never phrase anything as advice, a score or a prediction. "You noted getting stuck in half guard most" is fine; "work on half guard" is not.
 - **Nothing is lost**: no streaks or anything that can be broken. Rewards are cumulative.
+- **Buddies** share one rig in `src/ui/companion.ts` (body, sleeves and hands, belt and knot, eyes, two mouths). A new character only adds colors, a head and optional `back` extras, so reactions, stripes and patches keep working. Never add a sad or disappointed state.
+- **"Working on"** is the person's own words. Quick fills come from their log; never suggest or auto-set a focus (agents included).
 - **Charts** need a text equivalent (a table or list) and `title`/`aria-label` on marks.
 - **Motion**: respect `prefers-reduced-motion`. Never use pixel `transform-origin` on SVG; use `transform-box: fill-box`.
 - **Privacy**: no analytics, no network calls besides fonts. Demo data uses made-up partners.

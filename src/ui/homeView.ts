@@ -8,6 +8,7 @@ import { currentRank, matMinutes, nextPatch, rollsIn, weekRecap } from '../core/
 import type { LogEvent } from '../core/types';
 import { holdKind, tapKind } from './actions';
 import { BELT_LABEL, beltSwatch, esc } from './dom';
+import { renderFocusCard } from './focusView';
 import { openSheet } from './sheet';
 
 const HOLD_MS = 450;
@@ -80,10 +81,7 @@ export function renderHero(now: number) {
   const hoursText = `${hours(total)} on the mat${next ? ` · ${hours(next.hours * 60 - total)} to the ${next.label} patch` : ' · every patch earned'}`;
   const hEl = document.getElementById('hours')!;
   if (hEl.textContent !== hoursText) hEl.textContent = hoursText;
-  const f = document.getElementById('focus')!;
-  const focusHtml = prefs.focus.trim() ? `<b>Working on:</b> ${esc(prefs.focus.trim())}` : '+ What are you working on?';
-  if (f.innerHTML !== focusHtml) f.innerHTML = focusHtml;
-  f.classList.toggle('set', !!prefs.focus.trim());
+  renderFocusCard(now);
 }
 
 function rollRow(r: LogEvent, now: number): string {
@@ -91,6 +89,8 @@ function rollRow(r: LogEvent, now: number): string {
   const bits: string[] = [];
   if (d.subsFor?.length) bits.push(`<span class="sub-for">✓ ${esc(d.subsFor.map(subLabel).join(', '))}</span>`);
   if (d.subsAgainst?.length) bits.push(`<span class="sub-against">✗ ${esc(d.subsAgainst.map(subLabel).join(', '))}</span>`);
+  if (d.landed?.length) bits.push(`<span class="sub-for">↗ ${esc(d.landed.map(techniqueLabel).join(', '))}</span>`);
+  if (d.tried?.length) bits.push(`tried ${esc(d.tried.map(techniqueLabel).join(', '))}`);
   if (d.stuck?.length) bits.push(`stuck: ${esc(d.stuck.map(positionLabel).join(', '))}`);
   if (d.outcome) bits.push(d.outcome);
   const running = r.endAt === undefined && !d.min;

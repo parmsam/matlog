@@ -21,6 +21,7 @@ Checked 2026-10-09 (see the README for the table).
 - **BetterBJJ** (iOS/Android): voice-first logging, AI game plans, proficiency scores. Their pitch against other apps is "23 fields, 8 screens". *Take:* that friction is the enemy; Markdown paste covers dictated notes without AI. *Skip:* scores and plans.
 - **MatTime** ($9.99 lifetime, iOS only): fast mat-hour logging ("14 seconds"), weekly goals, streaks, gym leaderboards. *Take:* mat hours front and centre. *Skip:* streaks (guilt) and leaderboards.
 - **Grapl, GrappleKit** (subscriptions): curriculum, round timer, playlists. *Take:* a round timer belongs in the journal.
+- **Obsidian** (free for personal use; Sync $4–5/mo): local Markdown vaults on every platform. *Take:* Markdown export that drops into a vault. *Skip:* nothing to skip, it's a companion, not a competitor.
 - **Notes apps / paper**: free and flexible, but no stats. *Take:* Markdown in and out, so a notes app stays a fine companion.
 - "Grapple Log" turned up no app by that name.
 
@@ -64,7 +65,8 @@ Checked 2026-10-09 (see the README for the table).
 - [x] Stopping a round offers the roll sheet (skippable), since that's when you know what happened.
 - [x] Log a finished session with its length (the sheet's "Already done" toggle, or `min=` in a link).
 - [x] Paste a Markdown class note to log it (session + rolls), with a preview before saving.
-- [x] "Working on" focus line on the home screen (yours, never suggested).
+- [x] "Working on" card: its own sheet with quick fills from your log, history and "use again"; counts what happens with a named technique, position or sub since you set it.
+- [x] Moves landed and tried in each round (sweeps, passes, takedowns…), shown as "landed X of Y".
 - [x] Edit and delete any entry; recent sessions list with rounds nested under them.
 
 ### Seeing progress
@@ -82,6 +84,8 @@ Checked 2026-10-09 (see the README for the table).
 - [x] Position graph built from your own logs (standing → guard → passing → dominant → submission), edges weighted by sessions.
 
 ### Delight
+- [x] Six buddies (Grappler, Bear, Sloth, Octopus, Frog, Cat) or a different one each day, on one shared rig.
+- [x] Belt splash on open, on by default, toggle in Settings; links skip it.
 - [x] Companion that ties its belt when a session starts, taps out when you log a tap, celebrates a finish, and wears your belt color and stripes.
 - [x] Gi / no-gi themes (auto follows the system).
 - [x] Patches unlocked at 10, 25, 50, 100, 250, 500 and 1,000 mat hours, worn on the companion.
@@ -91,6 +95,7 @@ Checked 2026-10-09 (see the README for the table).
 - [x] `window.matlog` scripting API and `public/llms.txt`.
 - [x] Markdown export (copy any range) and import (paste).
 - [x] JSON backup export/import with merge.
+- [x] Backup reminder banner with Back up now (share sheet on phones) and Not now; interval in Settings (3/7/14/30 days or only every 30 entries).
 - [x] Keyboard shortcuts.
 - [x] Comparison table in the README.
 
@@ -101,4 +106,5 @@ Checked 2026-10-09 (see the README for the table).
 - [ ] Screenshots in `docs/`.
 
 ## Decisions log
+- 2026-10-09: v0.2.0. Moves landed/tried per round (`detail.landed`, `detail.tried`): an attempt is a round where you went for it, landed or not, and misses don't draw edges on the position graph. Backup reminders ported from tinylog with matlog thresholds (30 entries; 7 days by default). "Working on" got its own sheet; it matches a technique, position or sub inside the sentence (subs win over the same-named technique, since they count taps too) and counts events that end after it was set. Redrew the buddy as one shared rig with six characters. Splash on by default, skipped for `?do=` links.
 - 2026-10-09: v0.1.0. Started from tinylog's template. All five cards are timed; a finished entry is an event with `detail.min` and no `endAt`. Rounds belong to sessions by time. Patches instead of streaks. No anime.js or three.js: the companion is CSS-animated SVG, to keep the bundle small.

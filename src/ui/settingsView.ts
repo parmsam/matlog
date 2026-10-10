@@ -1,10 +1,14 @@
-import { BELTS, type Belt } from '../core/types';
-import { backupFilename, BackupError, parseBackup, toBackup } from '../core/backup';
+import { BELTS, type Belt, type CompanionChoice } from '../core/types';
+import { BUDDIES, type BuddyId } from './companion';
+import { BackupError, parseBackup } from '../core/backup';
+import { BACKUP_EVERY } from '../core/backupReminder';
+import { BACKUP_DAY_CHOICES } from '../core/settings';
 import { hours } from '../core/format';
-import { app, importData, settings, snapshot } from '../core/log';
+import { app, importData, settings } from '../core/log';
 import { matMinutes, PATCHES } from '../core/stats';
 import { patchSvg } from '../viz/patch';
-import { BELT_LABEL, copyText, download, esc, openDialog, sheetHead } from './dom';
+import { backUpNow } from './backup';
+import { BELT_LABEL, copyText, esc, openDialog, sheetHead } from './dom';
 import { storageStatus } from './persist';
 import { toast } from './toast';
 
@@ -33,7 +37,6 @@ async function render() {
       <label class="field"><span class="field-label">Stripes</span><select name="startStripes">${[0, 1, 2, 3, 4].map((n) => opt(n, String(n), s.startStripes)).join('')}</select></label>
     </div>
     <p class="hint">Your rank before your first logged promotion. Log promotions in Progress.</p>
-    <label class="field"><span class="field-label">Working on</span><input type="text" name="focus" value="${esc(s.focus)}" maxlength="140" placeholder="e.g. framing from bottom side control" autocomplete="off" /></label>
     <div class="row">
       <label class="field"><span class="field-label">Theme</span><select name="theme">${opt('auto', 'Auto (follows system)', s.theme)}${opt('gi', 'Gi (light)', s.theme)}${opt('nogi', 'No-gi (dark)', s.theme)}</select></label>
       <label class="field"><span class="field-label">Session length</span><select name="defaultMin">${[30, 45, 60, 75, 90, 120].map((m) => opt(m, `${m} min`, s.defaultMin)).join('')}</select></label>
@@ -42,7 +45,8 @@ async function render() {
       <label class="field"><span class="field-label">Week starts</span><select name="weekStart">${opt(1, 'Monday', s.weekStart)}${opt(0, 'Sunday', s.weekStart)}</select></label>
       <label class="field"><span class="field-label">Clock</span><select name="clock">${opt('auto', 'Auto', s.clock)}${opt('12h', '12-hour', s.clock)}${opt('24h', '24-hour', s.clock)}</select></label>
     </div>
-    <label class="check"><input type="checkbox" name="companion" ${s.companion ? 'checked' : ''} /> Show the training buddy</label>
+    <label class="field"><span class="field-label">Training buddy</span><select name="companion">${(Object.keys(BUDDIES) as BuddyId[]).map((id) => opt(id, BUDDIES[id].label, s.companion)).join('')}${opt('random', 'A different one each day', s.companion)}${opt('off', 'Off', s.companion)}</select></label>
+    <label class="check"><input type="checkbox" name="splash" ${s.splash ? 'checked' : ''} /> Show the belt splash when the app opens</label>
   </form>
 
   <section class="block"><h3>Patches to wear</h3>
@@ -60,7 +64,8 @@ async function render() {
 
   <section class="block"><h3>Backup and other devices</h3>
     <p class="basis">Everything lives in this browser (IndexedDB, with a second copy in localStorage). ${st.persisted ? 'Storage is marked persistent.' : 'Install the app to the Home Screen so the browser keeps it.'} ${s.lastBackupAt ? `Last backup: ${new Date(s.lastBackupAt).toLocaleDateString()}.` : 'No backup yet.'}</p>
-    <div class="head-actions"><button type="button" class="chip primary" data-export>Export backup</button><label class="chip" style="cursor:pointer">Import backup<input type="file" accept="application/json,.json" data-import hidden /></label></div>
+    <label class="field" style="margin-top:4px"><span class="field-label">Remind me to back up</span><select data-backup-every>${BACKUP_DAY_CHOICES.map((d) => `<option value="${d}" ${d === s.backupEveryDays ? 'selected' : ''}>${d ? `Every ${d} days` : `Only every ${BACKUP_EVERY} new entries`}</option>`).join('')}</select></label>
+    <div class="head-actions"><button type="button" class="chip primary" data-export>Back up now</button><label class="chip" style="cursor:pointer">Import backup<input type="file" accept="application/json,.json" data-import hidden /></label></div>
     <p class="hint" style="margin-top:8px">Importing merges: entries match by id, the newest edit wins, and importing twice is harmless.</p>
   </section>
 
@@ -83,6 +88,10 @@ export function openSettings() {
       settings.set({ patches: el.checked ? [...cur, id] : cur });
       return;
     }
+    if (el.dataset.backupEvery !== undefined) {
+      settings.set({ backupEveryDays: Number(el.value), backupLaterAt: 0 });
+      return;
+    }
     if (el.dataset.import !== undefined) {
       const file = el.files?.[0];
       if (!file) return;
@@ -103,12 +112,12 @@ export function openSettings() {
       name: String(f.get('name') ?? '').trim(),
       startBelt: f.get('startBelt') as Belt,
       startStripes: Number(f.get('startStripes')),
-      focus: String(f.get('focus') ?? '').trim(),
       theme: f.get('theme') as 'auto' | 'gi' | 'nogi',
       defaultMin: Number(f.get('defaultMin')),
       weekStart: Number(f.get('weekStart')) as 0 | 1,
       clock: f.get('clock') as 'auto' | '12h' | '24h',
-      companion: f.get('companion') === 'on',
+      companion: f.get('companion') as CompanionChoice,
+      splash: f.get('splash') === 'on',
     });
   });
   d.addEventListener('click', async (e) => {
@@ -118,11 +127,6 @@ export function openSettings() {
       toast((await copyText(appUrl() + q)) ? 'Link copied' : "Couldn't copy");
       return;
     }
-    if (el.closest('[data-export]')) {
-      const now = Date.now();
-      download(backupFilename(now), JSON.stringify(toBackup(snapshot(), now)));
-      settings.set({ lastBackupAt: now });
-      toast('Backup saved');
-    }
+    if (el.closest('[data-export]')) await backUpNow().then(() => render());
   });
 }

@@ -15,6 +15,7 @@ Open the app with a `do` query parameter to log something. The parameters are re
 - `&ago=15`: it ended (log) or started (start) 15 minutes ago (0–527040)
 - `&gi=gi|nogi`, `&tech=knee cut,armbar from guard` (techniques, comma-separated; unknown names are kept as typed)
 - Rounds only: `&partner=Sam&belt=white|blue|purple|brown|black&size=smaller|similar|bigger&sub=armbar,rnc&tapped=triangle&stuck=half guard&outcome=win|loss|draw`
+- Moves in a round: `&landed=knee cut,scissor sweep` (you landed them) and `&tried=berimbolo` (you went for it, it didn't land)
 - `&note=…` on anything
 
 Examples: `?do=log&type=class&min=90&gi=nogi&tech=knee cut`, `?do=toggle&type=roll`, `?do=log&type=roll&partner=Jo&belt=blue&sub=rnc`.
@@ -27,15 +28,16 @@ When you control the page (Playwright `page.evaluate`, DevTools, a browser agent
 
 - `matlog.help()`: this reference as text
 - `matlog.state()`: `{ name, now, rank: { belt, stripes }, promotions, matHours, sessions, running: [{ type, since, minutes }], workingOn, last7Days: { sessions, minutes, rounds, subsFor, subsAgainst, techniques } }`
-- `matlog.log(type, opts?)`, `matlog.start(type, opts?)`, `matlog.stop(type, opts?)`, `matlog.toggle(type, opts?)`: opts are `{ min, minutesAgo, gi, techniques, partner, belt, size, subs, tapped, stuck, outcome, note }` (lists as an array or comma text). Returns `{ result: 'logged' | 'started' | 'stopped' | 'switched', entry }` or `{ result: 'nothing-to-do', reason }`
+- `matlog.log(type, opts?)`, `matlog.start(type, opts?)`, `matlog.stop(type, opts?)`, `matlog.toggle(type, opts?)`: opts are `{ min, minutesAgo, gi, techniques, partner, belt, size, subs, tapped, landed, tried, stuck, outcome, note }` (lists as an array or comma text). Returns `{ result: 'logged' | 'started' | 'stopped' | 'switched', entry }` or `{ result: 'nothing-to-do', reason }`
 - `matlog.entries(days = 7)`: sessions, rounds and promotions from the last N days
 - `matlog.undo()`: undo the last change made in the app (within 5 minutes)
 - `matlog.markdown(days = 7)`: the last N days as Markdown (the same format the Paste dialog reads)
 - `matlog.importMarkdown(text)`: log a class note; returns `{ sessions, rounds, ids }`
 - `matlog.parseMarkdown(text)`: what importMarkdown would log, without logging
 - `matlog.stats()`: subs hit and tapped to, ratio, stuck positions, partners, by partner belt
-- `matlog.techniques()`: each tagged technique with sessions, last drilled and from → to positions
+- `matlog.techniques()`: each technique with sessions drilled, `landed` and `attempts` in rounds, last used, and from → to positions
 - `matlog.patterns()`: plain descriptions, each with what it's based on
+- `matlog.focus(text?)`: read or set "Working on" (`''` clears). Returns `{ text, since, tracking: { kind, id } | null, sinceThen: { sessions, drilled, attempts, landed, stuck, hit, tapped }, history }`. Only set it when the person asks
 
 ## Class note format
 
@@ -46,7 +48,7 @@ Techniques: knee cut, arm triangle
 Anything else is the note.
 
 ### Rolls
-- Sam (purple, bigger, 6m): hit armbar; tapped to triangle; stuck in half guard
+- Sam (purple, bigger, 6m): hit armbar; tapped to triangle; landed knee cut; tried berimbolo; stuck in half guard
 ```
 
 A heading naming a session (class, open mat, drilling, comp) starts one; a "Rolls" heading lists rounds. Keys: Date, Length, Gi, Techniques, Note, Type. Plain text with no headings is one class.
@@ -59,6 +61,10 @@ A heading naming a session (class, open mat, drilling, comp) starts one; a "Roll
   `matlog.start('class')`; later `matlog.stop('class')`.
 - Log a round: tapped Sam (purple) with an armbar, got stuck in half guard
   `matlog.log('roll', { partner: 'Sam', belt: 'purple', subs: 'armbar', stuck: 'half guard' })`.
+- At open mat I landed a knee cut twice and went for a berimbolo
+  One round each: `matlog.log('roll', { landed: 'knee cut', tried: 'berimbolo' })`, `matlog.log('roll', { landed: 'knee cut' })`.
+- I'm working on my knee cut
+  `matlog.focus('knee cut')`; later `matlog.focus().sinceThen`.
 - How many mat hours do I have?
   `matlog.state().matHours`.
 - What do I get stuck in, and what do I tap to?

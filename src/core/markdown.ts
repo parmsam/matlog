@@ -18,7 +18,7 @@ import { BELTS, type Belt, type Detail, type LogEvent, type SessionKind, type Si
  *   - Note: good rounds
  *
  *   ### Rolls
- *   - Sam (purple, bigger, 6m): hit armbar; tapped to triangle; stuck in half guard
+ *   - Sam (purple, bigger, 6m): hit armbar; tapped to triangle; landed knee cut; tried berimbolo; stuck in half guard
  */
 
 const MIN = 60_000;
@@ -32,6 +32,8 @@ function rollLine(r: LogEvent, now: number): string {
   const bits: string[] = [];
   if (d.subsFor?.length) bits.push(`hit ${d.subsFor.map(subLabel).join(', ')}`);
   if (d.subsAgainst?.length) bits.push(`tapped to ${d.subsAgainst.map(subLabel).join(', ')}`);
+  if (d.landed?.length) bits.push(`landed ${d.landed.map(techniqueLabel).join(', ')}`);
+  if (d.tried?.length) bits.push(`tried ${d.tried.map(techniqueLabel).join(', ')}`);
   if (d.stuck?.length) bits.push(`stuck in ${d.stuck.map(positionLabel).join(', ')}`);
   if (d.note) bits.push(`note ${d.note.replace(/\s+/g, ' ')}`);
   return `- ${who}${bits.length ? `: ${bits.join('; ')}` : ''}`;
@@ -132,7 +134,7 @@ export function parseRollLine(line: string): Detail {
   const colon = text.indexOf(':');
   let head = colon >= 0 ? text.slice(0, colon) : '';
   let body = colon >= 0 ? text.slice(colon + 1) : text;
-  if (colon < 0 && !/\b(hit|got|finished|tapped|caught|stuck|won|lost|draw|sub)/i.test(text)) {
+  if (colon < 0 && !/\b(hit|got|finished|tapped|caught|stuck|won|lost|draw|sub|landed|tried|attempted|went for|missed)/i.test(text)) {
     head = text;
     body = '';
   }
@@ -155,10 +157,14 @@ export function parseRollLine(line: string): Detail {
   const subsFor: string[] = [];
   const subsAgainst: string[] = [];
   const stuck: string[] = [];
+  const landed: string[] = [];
+  const tried: string[] = [];
   const notes: string[] = [];
   for (const clause of text.split(/;|\.\s/).map((c) => c.trim()).filter(Boolean)) {
     let m: RegExpExecArray | null;
-    if ((m = /^(?:tapped to|tapped by|got tapped (?:by|with)|caught (?:in|with|by)|tapped|lost to)\s*:?\s*(.+)$/i.exec(clause))) subsAgainst.push(...splitList(m[1]).map(resolveSub));
+    if ((m = /^(?:landed|pulled off|completed)\s*:?\s*(.+)$/i.exec(clause))) landed.push(...splitList(m[1]).map(resolveTechnique));
+    else if ((m = /^(?:tried|attempted|went for|missed|failed)\s*:?\s*(.+)$/i.exec(clause))) tried.push(...splitList(m[1]).map(resolveTechnique));
+    else if ((m = /^(?:tapped to|tapped by|got tapped (?:by|with)|caught (?:in|with|by)|tapped|lost to)\s*:?\s*(.+)$/i.exec(clause))) subsAgainst.push(...splitList(m[1]).map(resolveSub));
     else if ((m = /^(?:hit|got|finished|subbed (?:with|them with)?|sub(?:mitted)?(?: with)?|caught them (?:in|with))\s*:?\s*(.+)$/i.exec(clause))) subsFor.push(...splitList(m[1]).map(resolveSub));
     else if ((m = /^(?:stuck(?: in| at| under)?|got stuck(?: in| under)?|pinned (?:in|under))\s*:?\s*(.+)$/i.exec(clause))) stuck.push(...splitList(m[1]).map(resolvePosition));
     else if ((m = /^note\s*:?\s*(.+)$/i.exec(clause))) notes.push(m[1]);
@@ -170,6 +176,8 @@ export function parseRollLine(line: string): Detail {
   if (subsFor.length) d.subsFor = subsFor.filter(Boolean);
   if (subsAgainst.length) d.subsAgainst = subsAgainst.filter(Boolean);
   if (stuck.length) d.stuck = stuck.filter(Boolean);
+  if (landed.length) d.landed = landed.filter(Boolean);
+  if (tried.length) d.tried = tried.filter(Boolean);
   if (notes.length) d.note = notes.join('; ').slice(0, 500);
   return d;
 }

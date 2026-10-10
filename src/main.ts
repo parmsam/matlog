@@ -7,6 +7,7 @@ import { renderCompanion } from './ui/companion';
 import { copyText } from './ui/dom';
 import { mountCards, mountRecent, renderCards, renderHero, renderRecent } from './ui/homeView';
 import { runLinkAction } from './ui/linkRunner';
+import { openFocus } from './ui/focusView';
 import { openPaste } from './ui/pasteView';
 import { openProgress } from './ui/progressView';
 import { setupPwa } from './ui/pwa';
@@ -14,6 +15,9 @@ import { openSettings } from './ui/settingsView';
 import { openShortcuts } from './ui/shortcuts';
 import { openTech } from './ui/techView';
 import { applyTheme } from './ui/theme';
+import { mountBanner, showBanner } from './ui/backup';
+import { showSplash } from './ui/splash';
+import { currentRank } from './core/stats';
 import { toast, undoLast } from './ui/toast';
 import { addDays, dayKey } from './core/days';
 import { toMarkdown } from './core/markdown';
@@ -30,6 +34,7 @@ applyTheme(settings.get().theme);
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => applyTheme(settings.get().theme));
 mountCards(cardsEl);
 mountRecent();
+mountBanner();
 document.getElementById('app-version')!.textContent = `v${__APP_VERSION__}`;
 document.getElementById('settings-open')!.addEventListener('click', openSettings);
 document.getElementById('progress-open')!.addEventListener('click', openProgress);
@@ -37,12 +42,7 @@ document.getElementById('tech-open')!.addEventListener('click', openTech);
 document.getElementById('paste-open')!.addEventListener('click', () => openPaste());
 document.getElementById('shortcuts-open')!.addEventListener('click', openShortcuts);
 
-function editFocus() {
-  const cur = settings.get().focus;
-  const next = prompt('What are you working on? (Leave empty to clear.)', cur);
-  if (next !== null) settings.set({ focus: next.trim().slice(0, 140) });
-}
-document.getElementById('focus')!.addEventListener('click', editFocus);
+document.getElementById('focus')!.addEventListener('click', openFocus);
 
 let frame = 0;
 function render() {
@@ -55,14 +55,21 @@ function render() {
     renderHero(now);
     renderRecent(now);
     renderCompanion(now);
+    const belt = currentRank(app.get().events, settings.get(), now).belt;
+    if (settings.get().lastBelt !== belt) settings.set({ lastBelt: belt });
     const name = settings.get().name.trim();
     document.title = name ? `${name} · matlog` : 'matlog';
   });
 }
 
 app.subscribe(render);
+// New entries can make the backup reminder due; settings changes (a backup, "Not now") can clear it.
+app.subscribe((s, prev) => {
+  if (s.loaded && s.events.length !== prev.events.length) showBanner();
+});
 settings.subscribe((s, prev) => {
   if (s.theme !== prev.theme) applyTheme(s.theme);
+  showBanner();
   render();
 });
 
@@ -90,7 +97,7 @@ document.addEventListener('keydown', (e) => {
   else if (key === 'g') openProgress();
   else if (key === 't') openTech();
   else if (key === 'v') openPaste();
-  else if (key === 'f') editFocus();
+  else if (key === 'f') openFocus();
   else if (key === 'm') void copyWeek();
   else if (key === 'u') {
     if (!undoLast()) toast('Nothing to undo');
@@ -105,10 +112,13 @@ document.addEventListener('keydown', (e) => {
 });
 
 render();
-void init().then(({ restored }) => {
+const loading = init();
+showSplash(loading, { enabled: settings.get().splash, rank: settings.get().lastBelt });
+void loading.then(({ restored }) => {
   if (restored) toast(`Recovered ${restored} entr${restored === 1 ? 'y' : 'ies'} from the on-device backup copy`);
   document.documentElement.dataset.ready = '';
   runLinkAction();
+  showBanner();
   render();
 });
 setupPwa();

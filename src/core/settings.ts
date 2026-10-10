@@ -1,4 +1,6 @@
-import { BELTS, type PatchId, type Settings } from './types';
+import { BELTS, type CompanionChoice, type PatchId, type Settings } from './types';
+
+const COMPANIONS: CompanionChoice[] = ['grappler', 'bear', 'sloth', 'octopus', 'frog', 'cat', 'random', 'off'];
 
 export const SETTINGS_KEY = 'matlog:v1:settings';
 
@@ -10,12 +12,22 @@ export const DEFAULT_SETTINGS: Settings = {
   clock: 'auto',
   defaultMin: 60,
   weekStart: 1,
-  companion: true,
+  companion: 'grappler',
   patches: [],
   lastBackupAt: null,
+  backupEveryDays: 7,
+  backupSnoozedAt: 0,
+  backupLaterAt: 0,
   tipsSeen: [],
   focus: '',
+  focusSince: null,
+  focusHistory: [],
+  splash: true,
+  lastBelt: 'white',
 };
+
+/** Backup reminder intervals offered in Settings (0 = only every 30 entries). */
+export const BACKUP_DAY_CHOICES = [3, 7, 14, 30, 0];
 
 const PATCHES: PatchId[] = ['p10', 'p25', 'p50', 'p100', 'p250', 'p500', 'p1000'];
 
@@ -40,11 +52,25 @@ export function sanitize(saved: Partial<Settings>): Settings {
   if (!['auto', '12h', '24h'].includes(s.clock)) s.clock = 'auto';
   if (!Number.isInteger(s.defaultMin) || s.defaultMin < 5 || s.defaultMin > 600) s.defaultMin = 60;
   if (s.weekStart !== 0 && s.weekStart !== 1) s.weekStart = 1;
-  s.companion = s.companion !== false;
+  // v0.1 stored a boolean.
+  const c = s.companion as unknown;
+  if (c === true) s.companion = 'grappler';
+  else if (c === false) s.companion = 'off';
+  if (!COMPANIONS.includes(s.companion)) s.companion = 'grappler';
+  s.splash = s.splash !== false;
+  if (!BELTS.includes(s.lastBelt)) s.lastBelt = s.startBelt;
   s.patches = Array.isArray(s.patches) ? [...new Set(s.patches.filter((p) => PATCHES.includes(p)))] : [];
   if (!Array.isArray(s.tipsSeen)) s.tipsSeen = [];
   s.focus = typeof s.focus === 'string' ? s.focus.slice(0, 140) : '';
+  if (!s.focus) s.focusSince = null;
+  else if (!Number.isFinite(s.focusSince)) s.focusSince = null;
+  s.focusHistory = Array.isArray(s.focusHistory)
+    ? s.focusHistory.filter((h) => h && typeof h.text === 'string' && h.text.trim() && Number.isFinite(h.from) && Number.isFinite(h.to)).slice(0, 12)
+    : [];
   if (s.lastBackupAt !== null && !Number.isFinite(s.lastBackupAt)) s.lastBackupAt = null;
+  if (!BACKUP_DAY_CHOICES.includes(s.backupEveryDays)) s.backupEveryDays = DEFAULT_SETTINGS.backupEveryDays;
+  if (!Number.isInteger(s.backupSnoozedAt) || s.backupSnoozedAt < 0) s.backupSnoozedAt = 0;
+  if (!Number.isFinite(s.backupLaterAt) || s.backupLaterAt < 0) s.backupLaterAt = 0;
   return s;
 }
 

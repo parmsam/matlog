@@ -25,6 +25,10 @@ describe('parseLinkAction', () => {
       detail: { partner: 'Sam', belt: 'purple', size: 'bigger', subsFor: ['rnc', 'kimura'], subsAgainst: ['triangle'], stuck: ['half-guard'], outcome: 'win' },
     });
   });
+  it('reads moves landed and tried in a round', () => {
+    expect(parseLinkAction('?do=log&type=roll&landed=knee slice,scissor&tried=berimbolo')).toMatchObject({ detail: { landed: ['knee-cut', 'scissor-sweep'], tried: ['berimbolo'] } });
+    expect(parseLinkAction('?do=log&type=open-mat&landed=knee cut')).toMatchObject({ kind: 'invalid' });
+  });
   it('reads gi and techniques', () => {
     expect(parseLinkAction('?do=log&type=class&gi=nogi&tech=knee slice,My weird sweep')).toMatchObject({ detail: { attire: 'nogi', techniques: ['knee-cut', 'My weird sweep'] } });
   });

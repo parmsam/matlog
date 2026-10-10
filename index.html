@@ -42,9 +42,10 @@
         <div class="hero-text">
           <p id="rank" class="rank"></p>
           <p id="hours" class="hours"></p>
-          <button id="focus" class="focus" type="button" title="What you're working on (F)"></button>
         </div>
       </section>
+
+      <button id="focus" class="focus-card" type="button" aria-keyshortcuts="f"></button>
 
       <div id="banner" class="banner" hidden></div>
 
@@ -83,6 +84,7 @@
     <dialog id="tech" class="sheet tall" aria-labelledby="tech-title"></dialog>
     <dialog id="paste" class="sheet" aria-labelledby="paste-title"></dialog>
     <dialog id="shortcuts" class="sheet" aria-labelledby="shortcuts-title"></dialog>
+    <dialog id="focus-sheet" class="sheet" aria-labelledby="focus-title"></dialog>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

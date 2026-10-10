@@ -9,6 +9,7 @@ import { logKind, startKind, stopKind, toggleKind, type OpResult } from '../core
 import { currentRank, matMinutes, patterns, rankTimeline, rollsIn, rollStats, techniqueUses, weekRecap } from '../core/stats';
 import type { LogEvent } from '../core/types';
 import { logMarkdown } from './pasteView';
+import { matchFocus, focusProgress, setFocus } from '../core/focus';
 import { undoLast } from './toast';
 
 /**
@@ -32,6 +33,10 @@ export interface ActOptions {
   /** Submissions you tapped to. */
   tapped?: string[] | string;
   stuck?: string[] | string;
+  /** Moves (sweeps, passes, takedowns…) you landed in the round. */
+  landed?: string[] | string;
+  /** Moves you went for but didn't land. */
+  tried?: string[] | string;
   outcome?: 'win' | 'loss' | 'draw';
   note?: string;
 }
@@ -54,6 +59,8 @@ function toEntry(e: LogEvent, now = Date.now()) {
       subsFor: (d.subsFor ?? []).map(subLabel),
       subsAgainst: (d.subsAgainst ?? []).map(subLabel),
       stuck: (d.stuck ?? []).map(positionLabel),
+      landed: (d.landed ?? []).map(techniqueLabel),
+      tried: (d.tried ?? []).map(techniqueLabel),
     };
   return { ...base, gi: d.attire ?? null, techniques: (d.techniques ?? []).map(techniqueLabel), rounds: rollsIn(e, app.get().events, now).length };
 }
@@ -72,6 +79,8 @@ function act(verb: 'log' | 'start' | 'stop' | 'toggle', what: string, opts: ActO
     sub: joined(opts.subs),
     tapped: joined(opts.tapped),
     stuck: joined(opts.stuck),
+    landed: joined(opts.landed),
+    tried: joined(opts.tried),
     outcome: opts.outcome,
     note: opts.note,
   };
@@ -90,8 +99,10 @@ export const RECIPES: { ask: string; code: string; note: string }[] = [
   { ask: 'Log a 60 minute open mat I just finished', code: "matlog.log('open-mat', { min: 60 })", note: 'Also class, drilling, comp. minutesAgo moves the end back; gi: "nogi" and techniques: ["knee cut"] add detail.' },
   { ask: 'I just bowed in to class', code: "matlog.start('class')", note: 'stop() ends it (and any round running inside it). toggle() does whichever applies.' },
   { ask: 'Log a round: tapped Sam (purple) with an armbar, got stuck in half guard', code: "matlog.log('roll', { partner: 'Sam', belt: 'purple', subs: 'armbar', stuck: 'half guard' })", note: 'tapped: what you tapped to. Rounds default to 6 minutes; pass min.' },
+  { ask: 'At open mat I landed a knee cut twice and went for a berimbolo', code: "matlog.log('roll', { landed: 'knee cut', tried: 'berimbolo' })", note: 'One call per round. techniques() then shows each move as landed X of Y attempts.' },
   { ask: 'How many mat hours do I have?', code: 'matlog.state().matHours', note: 'state() also has rank, what is running, and the last 7 days.' },
   { ask: 'What do I get stuck in, and what do I tap to?', code: 'matlog.stats()', note: 'Counts and ratios. patterns() has plain sentences with what each is based on. Descriptive, never advice.' },
+  { ask: "I'm working on my knee cut", code: "matlog.focus('knee cut')", note: 'Shown on the home screen. matlog.focus() later reports sessions since, and rounds you went for or landed it. Never set one the person did not ask for.' },
   { ask: 'Log this class note', code: 'matlog.importMarkdown(text)', note: 'Same format as the Paste dialog and markdown() output.' },
 ];
 
@@ -102,7 +113,8 @@ matlog.state()                 rank, mat hours, what's running, the last 7 days
 matlog.log(type, opts?)        log a finished one, ending now (or minutesAgo); opts:
                                { min, minutesAgo, gi: 'gi'|'nogi', techniques, note,
                                  partner, belt, size: 'smaller'|'similar'|'bigger',     (rolls)
-                                 subs, tapped, stuck, outcome: 'win'|'loss'|'draw' }   (lists: array or comma text)
+                                 subs, tapped, landed, tried, stuck,                    (rolls; lists: array or comma text)
+                                 outcome: 'win'|'loss'|'draw' }
 matlog.start(type, opts?)      start the timer (one session at a time; a round can run inside it)
 matlog.stop(type, opts?)       stop it
 matlog.toggle(type, opts?)     start or stop
@@ -112,8 +124,9 @@ matlog.markdown(days = 7)      the last N days as Markdown
 matlog.importMarkdown(text)    log a pasted class note; returns what was added
 matlog.parseMarkdown(text)     preview what importMarkdown would log, without logging
 matlog.stats()                 subs for/against, stuck positions, partners, by belt
-matlog.techniques()            last drilled, with from → to positions
+matlog.techniques()            drilled in sessions, landed/tried in rounds, from → to positions
 matlog.patterns()              plain descriptions, each with what it's based on (not advice)
+matlog.focus(text?)            read or set "Working on" ("" clears); counts what happened since it was set
 
 Common requests:
 ${RECIPES.map((r) => `- ${r.ask}\n    ${r.code}\n    ${r.note}`).join('\n')}`;
@@ -138,7 +151,7 @@ export function createAgentApi() {
         matHours: Math.round(matMinutes(events, now) / 6) / 10,
         sessions: events.filter((e) => !e.deleted && isSession(e)).length,
         running,
-        workingOn: prefs.focus || null,
+        workingOn: prefs.focus ? { text: prefs.focus, since: prefs.focusSince ? iso(prefs.focusSince) : null } : null,
         last7Days: { sessions: r.sessions, minutes: r.minutes, rounds: r.rolls, subsFor: r.subsFor, subsAgainst: r.subsAgainst, techniques: r.techniques },
       };
     },
@@ -185,9 +198,26 @@ export function createAgentApi() {
       };
     },
     techniques() {
-      return techniqueUses(app.get().events).map((u) => ({ technique: u.label, sessions: u.sessions, lastDrilled: iso(u.lastAt), from: u.from ? positionLabel(u.from) : null, to: u.to ? positionLabel(u.to) : null }));
+      return techniqueUses(app.get().events).map((u) => ({ technique: u.label, sessions: u.sessions, landed: u.landed, attempts: u.attempts, last: iso(u.lastAt), from: u.from ? positionLabel(u.from) : null, to: u.to ? positionLabel(u.to) : null }));
     },
     patterns: () => patterns(app.get().events, Date.now()),
+    focus(text?: string) {
+      const now = Date.now();
+      if (text !== undefined) {
+        if (typeof text !== 'string') throw new Error('matlog: focus text is a string ("" clears it)');
+        settings.set(setFocus(settings.get(), text, now));
+      }
+      const s = settings.get();
+      if (!s.focus) return { text: null, history: s.focusHistory.map((h) => ({ text: h.text, from: iso(h.from), to: iso(h.to) })) };
+      const match = matchFocus(s.focus, techniqueUses(app.get().events).map((u) => u.id));
+      return {
+        text: s.focus,
+        since: s.focusSince ? iso(s.focusSince) : null,
+        tracking: match,
+        sinceThen: focusProgress(app.get().events, match, s.focusSince ?? now, now),
+        history: s.focusHistory.map((h) => ({ text: h.text, from: iso(h.from), to: iso(h.to) })),
+      };
+    },
   };
 }
 

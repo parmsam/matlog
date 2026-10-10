@@ -52,7 +52,7 @@ function picks<T extends string>(field: string, options: [T, string][], value: T
 }
 
 /** A tag list: chips you can remove, a text box (Enter or comma adds), and quick suggestions. */
-function tags(field: 'techniques' | 'subsFor' | 'subsAgainst' | 'stuck', legend: string, label: (id: string) => string, suggestions: [string, string][], placeholder: string, listId?: string): string {
+function tags(field: 'techniques' | 'subsFor' | 'subsAgainst' | 'stuck' | 'landed' | 'tried', legend: string, label: (id: string) => string, suggestions: [string, string][], placeholder: string, listId?: string): string {
   const list = draft.detail[field] ?? [];
   const chips = list.map((id) => `<button type="button" class="tag-chip" data-untag="${field}" data-value="${esc(id)}" aria-label="Remove ${esc(label(id))}">${esc(label(id))}</button>`).join('');
   const sug = suggestions
@@ -90,6 +90,11 @@ function rollFields(): string {
   const st = rollStats(app.get().events);
   const subSug = (mine: { id: string; label: string }[]) =>
     [...mine.map((c) => [c.id, c.label] as [string, string]), ...SUBMISSIONS.map((s) => [s.id, s.label] as [string, string])].filter(([id], i, a) => a.findIndex(([x]) => x === id) === i);
+  // Moves: what you drill and try most, then the catalog's sweeps, passes and takedowns.
+  const moveSug = [
+    ...techniqueUses(app.get().events).sort((a, b) => b.attempts + b.sessions - (a.attempts + a.sessions)).map((u) => [u.id, u.label] as [string, string]),
+    ...TECHNIQUES.filter((t) => t.kind !== 'submission').map((t) => [t.id, t.label] as [string, string]),
+  ].filter(([id], i, a) => a.findIndex(([x]) => x === id) === i);
   const stuckSug = [...st.stuck.map((c) => [c.id, c.label] as [string, string]), ...POSITIONS.filter((p) => p.id !== 'submission').map((p) => [p.id, p.label] as [string, string])].filter(([id], i, a) => a.findIndex(([x]) => x === id) === i);
   return `<label class="field"><span class="field-label">Partner</span>
       <input type="text" data-f="partner" value="${esc(d.partner ?? '')}" list="dl-partners" placeholder="optional" autocomplete="off" maxlength="60" /></label>
@@ -100,6 +105,8 @@ function rollFields(): string {
     </div>
     ${tags('subsFor', 'Subs you hit', subLabel, subSug(st.forBy), 'Add a submission…', 'dl-subs')}
     ${tags('subsAgainst', 'Tapped to', subLabel, subSug(st.againstBy), 'Add a submission…', 'dl-subs')}
+    ${tags('landed', 'Moves you landed', techniqueLabel, moveSug, 'Add a sweep, pass, takedown…', 'dl-tech')}
+    ${tags('tried', 'Moves you went for (didn’t land)', techniqueLabel, moveSug, 'Add a move…', 'dl-tech')}
     ${tags('stuck', 'Where you got stuck', positionLabel, stuckSug, 'Add a position…', 'dl-pos')}`;
 }
 
@@ -146,7 +153,7 @@ function render(focusTags?: string) {
   if (focusTags) dialog().querySelector<HTMLInputElement>(`[data-tags="${focusTags}"]`)?.focus();
 }
 
-const RESOLVE: Record<string, (s: string) => string> = { techniques: resolveTechnique, subsFor: resolveSub, subsAgainst: resolveSub, stuck: resolvePosition };
+const RESOLVE: Record<string, (s: string) => string> = { techniques: resolveTechnique, landed: resolveTechnique, tried: resolveTechnique, subsFor: resolveSub, subsAgainst: resolveSub, stuck: resolvePosition };
 
 function addTag(field: keyof Detail, text: string) {
   const parts = text
@@ -284,7 +291,7 @@ function save() {
     toast('Saved', { actions: [{ label: 'Undo', primary: true, run: () => revertTo(prev) }] });
   } else {
     const e = addEvent(createEvent(draft.type, at, detail, now, endAt));
-    if (draft.type === 'promotion') companionReact('cheer');
+    if (draft.type === 'promotion' || detail.landed?.length) companionReact('cheer');
     else if (detail.subsAgainst?.length) companionReact('tap');
     else if (detail.subsFor?.length) companionReact('cheer');
     toast(`${draft.type === 'promotion' ? '🎖️ Promotion' : kindById(draft.type as KindId).label} saved`, { actions: [{ label: 'Undo', primary: true, run: () => deleteEvent(e.id) }] });

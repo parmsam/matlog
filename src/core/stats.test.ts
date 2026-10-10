@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { currentRank, matMinutes, nextPatch, patterns, positionGraph, rankTimeline, rollsIn, rollStats, techniqueUses, unlockedPatches, weekHeatmap, weekRecap } from './stats';
+import { currentRank, matMinutes, moveStats, nextPatch, patterns, positionGraph, rankTimeline, rollsIn, rollStats, techniqueUses, unlockedPatches, weekHeatmap, weekRecap } from './stats';
 import { at, ev, MIN } from './testUtil';
 
 const now = at(2026, 10, 9, 20);
@@ -130,5 +130,32 @@ describe('patterns', () => {
     expect(p.find((x) => x.id === 'sub-against')?.text).toContain('triangle');
     expect(p.find((x) => x.id === 'attire')?.text).toBe('100% gi, 0% no-gi.');
     for (const x of p) expect(x.text).not.toMatch(/\b(should|try|work on|improve|need)\b/i);
+  });
+});
+
+describe('moves tried and landed in rounds', () => {
+  const events = [
+    ev('roll', at(2026, 10, 1), { landed: ['knee-cut'], tried: ['berimbolo', 'knee-cut'] }),
+    ev('roll', at(2026, 10, 2), { tried: ['knee-cut'] }),
+    ev('roll', at(2026, 10, 3), { landed: ['knee-cut', 'scissor-sweep'] }),
+    ev('class', at(2026, 9, 1), { techniques: ['knee-cut'] }),
+  ];
+  it('counts attempts per round (a landed move is an attempt too); ties go to more landed', () => {
+    expect(moveStats(events).map((m) => [m.id, m.landed, m.attempts])).toEqual([
+      ['knee-cut', 2, 3],
+      ['scissor-sweep', 1, 1],
+      ['berimbolo', 0, 1],
+    ]);
+    expect(techniqueUses(events).find((u) => u.id === 'knee-cut')).toMatchObject({ sessions: 1, landed: 2, attempts: 3, lastAt: at(2026, 10, 3) });
+  });
+  it('draws landed moves on the position graph, not misses', () => {
+    const g = positionGraph(events);
+    expect(g.edges.find((e) => e.techniques.includes('Knee cut pass'))?.n).toBe(3);
+    expect(g.edges.some((e) => e.techniques.includes('Berimbolo'))).toBe(false);
+  });
+  it('describes the most-landed move once there are 3', () => {
+    const more = [...events, ev('roll', at(2026, 10, 4), { landed: ['knee-cut'] })];
+    expect(patterns(more, now).find((p) => p.id === 'move')?.text).toBe('Your most-landed move in rounds is the knee cut pass: 3 of 4 attempts.');
+    expect(patterns(events, now).find((p) => p.id === 'move')).toBeUndefined();
   });
 });

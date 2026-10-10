@@ -42,6 +42,10 @@ describe('settings', () => {
     const s = sanitize({ startBelt: 'green' as never, startStripes: 9, theme: 'pink' as never, defaultMin: 1, patches: ['p10', 'nope' as never, 'p10'], focus: 5 as never });
     expect(s).toMatchObject({ startBelt: 'white', startStripes: 0, theme: 'auto', defaultMin: 60, patches: ['p10'], focus: '' });
     expect(sanitize({})).toEqual(DEFAULT_SETTINGS);
+    expect(sanitize({ companion: true as never }).companion).toBe('grappler');
+    expect(sanitize({ companion: false as never }).companion).toBe('off');
+    expect(sanitize({ companion: 'dragon' as never }).companion).toBe('grappler');
+    expect(sanitize({ splash: undefined }).splash).toBe(true);
   });
 });
 

@@ -46,6 +46,14 @@ describe('parseRollLine', () => {
       note: 'felt slow',
     });
   });
+  it('reads moves landed and tried', () => {
+    expect(parseRollLine('- Riley (blue): landed knee cut, scissor sweep; tried berimbolo; went for x pass')).toEqual({
+      partner: 'Riley',
+      belt: 'blue',
+      landed: ['knee-cut', 'scissor-sweep'],
+      tried: ['berimbolo', 'x-pass'],
+    });
+  });
   it('a bare clause list is a round without a partner', () => {
     expect(parseRollLine('- tapped to heel hook')).toEqual({ subsAgainst: ['heel-hook'] });
   });
@@ -82,13 +90,13 @@ Good energy tonight.
   it('round-trips an export', () => {
     const now = at(2026, 10, 9, 20);
     const s = ev('class', at(2026, 10, 8, 18), { attire: 'gi', techniques: ['knee-cut', 'my own thing'], note: 'tough one' }, { endAt: at(2026, 10, 8, 19, 30) });
-    const r = ev('roll', at(2026, 10, 8, 19), { partner: 'Sam', belt: 'purple', size: 'bigger', subsFor: ['armbar'], subsAgainst: ['triangle'], stuck: ['half-guard'] }, { endAt: at(2026, 10, 8, 19, 6) });
+    const r = ev('roll', at(2026, 10, 8, 19), { partner: 'Sam', belt: 'purple', size: 'bigger', subsFor: ['armbar'], subsAgainst: ['triangle'], stuck: ['half-guard'], landed: ['knee-cut'], tried: ['my spin thing'] }, { endAt: at(2026, 10, 8, 19, 6) });
     const md = toMarkdown([s, r], '2026-10-08', '2026-10-08', now);
     const [p] = parseMarkdown(md);
     expect(p.type).toBe('class');
     expect(p.at).toBe(s.at);
     expect(p.detail).toEqual({ min: 90, attire: 'gi', techniques: ['knee-cut', 'my own thing'], note: 'tough one' });
-    expect(p.rolls[0].detail).toEqual({ partner: 'Sam', belt: 'purple', size: 'bigger', min: 6, subsFor: ['armbar'], subsAgainst: ['triangle'], stuck: ['half-guard'] });
+    expect(p.rolls[0].detail).toEqual({ partner: 'Sam', belt: 'purple', size: 'bigger', min: 6, subsFor: ['armbar'], subsAgainst: ['triangle'], stuck: ['half-guard'], landed: ['knee-cut'], tried: ['my spin thing'] });
   });
 });
 
