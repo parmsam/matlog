@@ -17,14 +17,15 @@ matlog is a sibling of [tinylog](https://github.com/parmsam/tinylog) and uses th
 **Logging**
 - **One tap.** Class, Open mat, Drilling, Comp and Round (plus Study, off by default). Tap to start, tap to stop. Timers are timestamps, so they keep going through reloads, a locked phone or a closed tab. Starting open mat while class runs switches it instead of starting a second session.
 - **Topic.** An optional "what the class was about" on any session; when it names a technique, that technique's page lists the sessions on it.
-- **Logging late is normal.** Every log shows **Undo**, **−5m / −15m / −30m** and **Details**. Hold a card to log one you already did, with its length (1 hour for a class by default). Classes start on the hour by default, and the toast always offers the exact time.
+- **Logging late is normal.** Every log shows **Undo**, **−5m / −15m / −30m** and **Details**. Hold a card to log one you already did, with its length (1 hour for a class by default), or set the cards to **log past sessions only** in Settings if you'd rather not run timers. Classes start on the hour by default, and the toast always offers the exact time.
 - **Open mat flow.** Rounds belong to the session they happen in (class, open mat, drilling, or a comp, where they're matches): a round started during a session or added from its sheet stays with it even if you change its times, and one logged afterwards joins the session it falls in (or ended up to 10 minutes before). A round started on its own offers to start open mat; saving one offers **Next round**; a session's sheet lists its rounds with **+ Add a round**. The **round clock** (<kbd>K</kbd>) is a full-screen gym timer with round and rest lengths that buzzes at time and keeps the screen awake.
 - **Round log.** Stopping a round asks who you rolled with (partner, belt, size), where it started (positional rounds, top or bottom), subs you hit, what you tapped to, **moves you landed and moves you went for** (sweeps, passes, takedowns, back takes), and where you got stuck. Every field is optional and one tap away.
+- **Situational sparring.** A round can carry its goal or rules ("bottom escapes or sweeps"), a count of how many times you and your partner each got yours (rounds reset and go again), and a line on how it went. The next round in the session starts with the same position, side and goal.
 
 **Train with intention**: everything here lives in one **Notebook** (<kbd>N</kbd>), with tabs for Focus, Problems, Injuries and Reflections.
 - **Focus blocks.** Say what you're working on, a few connected skills at a time: a main skill, a complementary one, a habit, an experiment, a side project. Work each in a 1- or 2-week block, then rest it, go again, or call it done. Write where you go if it works and if it fails, and an optional reps target ("1 of 2 reps today"). When a focus names a technique, position or submission, matlog counts what happens in each block, so after a break you can see what stuck. You pick them; matlog never will.
 - **Problems.** Find a problem, write an idea to try, mark it solved. Note whether someone told you, you noticed it, or you see it coming, and whether you tinkered before looking it up.
-- **Reflect later.** A while after a session (two hours by default), a prompt opens a five-minute notebook: the current block, a problem you hit, an idea to try, and a check-in on whether you enjoyed it and followed your plan. Starting a session shows today's focus in the toast, like glancing at a notebook before rounds.
+- **Reflect later.** A while after a session (two hours by default), a prompt opens a five-minute notebook: the current block, a problem you hit, an idea to try, and a check-in on whether you enjoyed it and followed your plan. Starting a session shows today's focus in the toast, like glancing at a notebook before rounds. On a laptop, it can also send a notification while matlog is open in another tab.
 - **Injury log.** What got hurt (area and side), how bad in your own words, how it happened, what you're doing differently while it heals ("no leg locks, gi only"), dated updates, and when it healed. Log one from a round's sheet ("Got hurt?") or while reflecting, and it's linked to that round. While one is active, the home screen shows a quiet "🩹 Left knee · 12 days" and your buddy wears a small bandage. A record of what you logged, never medical advice.
 - **Skill ladder.** For any technique: landed / tried against lighter, same-size and heavier partners, and lower, same and higher belts than yours at the time.
 - **Paste a class note.** Paste Markdown or plain text from your notes app and it becomes a session with its rounds. You see a preview before anything is saved.
@@ -48,7 +49,7 @@ matlog is a sibling of [tinylog](https://github.com/parmsam/tinylog) and uses th
 - **Where you got stuck**, ranked.
 - **Belt and stripe timeline**, with the mat hours between each promotion.
 - **Injuries**: by area, days with one active this year, sessions trained around one, and how long they took to heal (median).
-- **How sessions felt**: enjoyment by month and how often you followed your plan, from your own check-ins. **Focus blocks** over the last six months, and **positional rounds** by starting position.
+- **How sessions felt**: enjoyment by month and how often you followed your plan, from your own check-ins. **Focus blocks** over the last six months, and **positional rounds** by starting position, with how often each side got its goal in situational rounds.
 - **Patterns, never advice.** "You noted getting stuck in half guard most: 14 rolls." Each pattern says what it's based on and stays hidden until there's enough data. matlog won't tell you what to drill.
 
 <p align="center">
@@ -59,7 +60,7 @@ matlog is a sibling of [tinylog](https://github.com/parmsam/tinylog) and uses th
 - **A training buddy.** Pick a Grappler, Bear, Sloth, Octopus, Frog or Cat, or a different one each day. They wear your belt and stripes, tie their belt when a session starts, tap out when you log a tap and cheer a finish. Tap yours for a line.
 <p align="center"><img src="docs/buddies.png" alt="The six training buddies in white gis with blue belts: Grappler, Bear, Sloth, Octopus, Frog and Cat" width="72%" /></p>
 
-- **A splash** of your belt tying itself as the app opens. It's on by default, a tap skips it, and you can turn it off in Settings.
+- **A splash** of your belt (and stripes) tying itself as the app opens; change your belt in Settings and it plays once so you can see it. It's on by default, a tap skips it, and you can turn it off in Settings.
 - **Gi and no-gi themes.** The gi theme is light, with a woven texture; no-gi is dark. Auto follows your system setting.
 - **Patches** for 10, 25, 50, 100, 250, 500 and 1,000 mat hours, sewn onto your buddy's gi. There are no streaks, so nothing can be lost.
 
@@ -125,6 +126,7 @@ Any link with `?do=` logs something when opened, with the usual Undo. **Settings
 | `?do=log&type=roll&partner=Jo&belt=blue&sub=rnc&tapped=triangle&stuck=half guard` | A round |
 | `?do=log&type=roll&landed=knee cut&tried=berimbolo` | A round where you landed a knee cut and went for a berimbolo |
 | `?do=log&type=roll&from=side control&role=bottom` | A positional round from bottom side control |
+| `?do=log&type=roll&from=mount&role=bottom&goal=escape&got=2&theygot=1` | A situational round: you escaped twice, got held once |
 | `?do=log&type=study&min=10&source=Half guard series` | Ten minutes of study (not mat time) |
 | `&ago=30` | It ended (or started) 30 minutes ago |
 
@@ -151,6 +153,10 @@ Paste a class note (**📋 Paste a note**, or <kbd>V</kbd>) and matlog logs the 
 ### Rounds
 - Sam (purple, bigger)
   - Started from: half guard bottom
+  - Goal: sweep or come up
+  - Got it: 2
+  - They got it: 1
+  - How it went: came up twice once I got the underhook
   - Hit: armbar
   - Tapped to: triangle
   - Landed: knee cut
@@ -171,7 +177,7 @@ Anything else, as free text.
 
 - `## Class` starts a session (Class, Open mat, Drilling, Comp or Study); several can follow each other.
 - Session details are bullets: Date, Length, Gi, Topic, Enjoyed (1–5), Followed my plan.
-- Each `###` section is a list: one technique, round, problem or injury per bullet, with sub-bullets for its details. Technique sub-bullets become notes on that technique (Key detail, Observation, Question, Source).
+- Each `###` section is a list: one technique, round, problem or injury per bullet, with sub-bullets for its details. Situational rounds add Goal, Got it, They got it and How it went. Technique sub-bullets become notes on that technique (Key detail, Observation, Question, Source).
 - Names are forgiving ("knee slice" is a knee cut, "rear naked" is an RNC); anything else is kept as you typed it. Older notes (comma lists, one-line rounds) still work.
 
 **With an AI.** Got a voice memo or a messy note? In the Paste dialog, open **The format** and tap **Copy prompt for an AI**. Paste the prompt into ChatGPT or Claude with your notes, then paste the answer back into matlog. The prompt includes your own technique and partner names, so they match. Claude users can also add the skill in [`skills/matlog-note`](skills/matlog-note/SKILL.md), and agents can read the same spec in [`llms.txt`](public/llms.txt).
