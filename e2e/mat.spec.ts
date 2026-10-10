@@ -1,7 +1,7 @@
 import { card, ev, expect, MIN, open, storedEvents, test, toastEl } from './helpers';
 
 test('round clock: start, count down, end, rest', async ({ page }) => {
-  await open(page, { settings: { roundMin: 5, restMin: 1 } });
+  await open(page); // default: 5-minute rounds, 1-minute rest
   await page.keyboard.press('k');
   const clock = page.locator('#clock');
   await expect(clock).toBeVisible();

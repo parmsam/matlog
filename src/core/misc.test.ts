@@ -46,6 +46,11 @@ describe('settings', () => {
     expect(sanitize({ companion: false as never }).companion).toBe('off');
     expect(sanitize({ companion: 'dragon' as never }).companion).toBe('grappler');
     expect(sanitize({ splash: undefined }).splash).toBe(true);
+    // Rounds are 5 minutes by default; v0.3's saved 6 moves to 5 unless you chose it.
+    expect(sanitize({}).roundMin).toBe(5);
+    expect(sanitize({ roundMin: 6 }).roundMin).toBe(5);
+    expect(sanitize({ roundMin: 6, roundMinSet: true }).roundMin).toBe(6);
+    expect(sanitize({ roundMin: 7 }).roundMin).toBe(7);
   });
 });
 

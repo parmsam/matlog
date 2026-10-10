@@ -106,8 +106,9 @@ describe('notesToEvents', () => {
     const events = notesToEvents([{ type: 'open-mat', at: null, detail: { min: 60 }, problems: [], rolls: [{ detail: { partner: 'A' } }, { detail: { partner: 'B', min: 8 } }] }], now);
     expect(events).toHaveLength(3);
     expect(events[0]).toMatchObject({ type: 'open-mat', at: now - 60 * MIN, detail: { min: 60 } });
-    expect(events[1]).toMatchObject({ type: 'roll', at: now - 59 * MIN, detail: { partner: 'A', min: 6 } });
-    expect(events[2]).toMatchObject({ type: 'roll', at: now - 52 * MIN, detail: { partner: 'B', min: 8 } });
+    // Rounds without a length get the default round length (5 minutes), one after another.
+    expect(events[1]).toMatchObject({ type: 'roll', at: now - 59 * MIN, detail: { partner: 'A', min: 5 } });
+    expect(events[2]).toMatchObject({ type: 'roll', at: now - 53 * MIN, detail: { partner: 'B', min: 8 } });
   });
 });
 

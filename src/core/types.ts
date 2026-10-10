@@ -184,6 +184,8 @@ export interface Settings {
   /** Round clock: round and rest length in minutes. */
   roundMin: number;
   restMin: number;
+  /** True once you've changed the round length yourself (v0.3 saved 6 by default; untouched ones move to 5). */
+  roundMinSet?: boolean;
   /** Home-screen buttons turned off (kind ids). Links, keys and the API still work. */
   hiddenCards: string[];
   /** Classes start on the hour: snap class start times (see core/ops.ts classStart). */

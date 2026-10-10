@@ -100,7 +100,7 @@ export function openClock() {
       if (ds.start !== undefined) present(startKind('roll', { at: now }), { prefix: '⏱️ ' });
       else if (ds.end !== undefined) present(stopKind('roll', { at: now }), { prefix: '⏱️ ' });
       else if (ds.openMat !== undefined) present(startKind('open-mat', { at: now }));
-      else if (ds.round) settings.set({ roundMin: Math.max(1, Math.min(20, settings.get().roundMin + Number(ds.round))) });
+      else if (ds.round) settings.set({ roundMin: Math.max(1, Math.min(20, settings.get().roundMin + Number(ds.round))), roundMinSet: true });
       else if (ds.rest) settings.set({ restMin: Math.max(0, Math.min(10, settings.get().restMin + Number(ds.rest))) });
       render();
     });

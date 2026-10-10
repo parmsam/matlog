@@ -24,7 +24,7 @@ export const DEFAULT_SETTINGS: Settings = {
   focusHistory: [],
   reflectAfter: 120,
   reflectSkipped: [],
-  roundMin: 6,
+  roundMin: 5,
   restMin: 1,
   hiddenCards: ['study'],
   classOnHour: true,
@@ -72,7 +72,9 @@ export function sanitize(saved: Partial<Settings>): Settings {
   else if (!Number.isFinite(s.focusSince)) s.focusSince = null;
   if (![0, 60, 120, 240, -1].includes(s.reflectAfter)) s.reflectAfter = 120;
   s.reflectSkipped = Array.isArray(s.reflectSkipped) ? s.reflectSkipped.filter((x) => typeof x === 'string').slice(-30) : [];
-  if (!Number.isInteger(s.roundMin) || s.roundMin < 1 || s.roundMin > 20) s.roundMin = 6;
+  if (!Number.isInteger(s.roundMin) || s.roundMin < 1 || s.roundMin > 20) s.roundMin = 5;
+  // v0.3 saved a 6-minute default; rounds are 5 minutes unless you chose otherwise.
+  if (s.roundMin === 6 && !s.roundMinSet) s.roundMin = 5;
   if (!Number.isInteger(s.restMin) || s.restMin < 0 || s.restMin > 10) s.restMin = 1;
   const cards = ['class', 'open-mat', 'drilling', 'comp', 'roll', 'study'];
   s.hiddenCards = Array.isArray(s.hiddenCards) ? [...new Set(s.hiddenCards.filter((id) => cards.includes(id)))] : [];

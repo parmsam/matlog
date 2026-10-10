@@ -19,7 +19,7 @@ export const KINDS: readonly KindDef[] = [
   { id: 'open-mat', label: 'Open mat', emoji: '🤼', key: 'o', defaultMin: 60 },
   { id: 'drilling', label: 'Drilling', emoji: '🔁', key: 'd', defaultMin: 45 },
   { id: 'comp', label: 'Comp', emoji: '🏆', key: 'p', defaultMin: 120 },
-  { id: 'roll', label: 'Round', emoji: '⏱️', key: 'r', defaultMin: 6 },
+  { id: 'roll', label: 'Round', emoji: '⏱️', key: 'r', defaultMin: 5 },
   /** Study time (instructionals, notes): logged like the rest, but not mat time. Hidden by default. */
   { id: 'study', label: 'Study', emoji: '📖', key: 's', defaultMin: 10 },
 ];

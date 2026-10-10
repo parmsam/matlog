@@ -258,7 +258,7 @@ function wire() {
       if (round) return openSheet({ event: getEvent(round)! });
       const inside = rollsIn(s, app.get().events, Date.now());
       const last = inside[inside.length - 1];
-      const start = last ? (last.endAt ?? last.at + (last.detail?.min ?? 6) * MIN) + MIN : s.at + 5 * MIN;
+      const start = last ? (last.endAt ?? last.at + (last.detail?.min ?? settings.get().roundMin) * MIN) + MIN : s.at + 5 * MIN;
       return openSheet({ type: 'roll', at: start, intro: `${s.type === 'comp' ? 'A match' : 'A round'} in ${kindById(s.type as KindId).label.toLowerCase()}.` });
     }
     if (el.dataset.pick) {
@@ -424,7 +424,7 @@ export function openSheet(opts: SheetOpts) {
     };
   } else {
     const type = opts.type ?? 'class';
-    const def = type === 'promotion' ? 0 : type === 'roll' || type === 'study' ? kindById(type).defaultMin : settings.get().defaultMin;
+    const def = type === 'promotion' ? 0 : type === 'roll' ? settings.get().roundMin : type === 'study' ? kindById(type).defaultMin : settings.get().defaultMin;
     let at = opts.at ?? (opts.running ? now : now - def * MIN);
     if (opts.at === undefined && type === 'class' && !opts.running && settings.get().classOnHour) at = classStart(at, false);
     draft = {

@@ -45,7 +45,7 @@ export function classStart(start: number, live: boolean): number {
 /** Log a finished entry: it ended at `at` and lasted `detail.min` (or the default length). */
 export function logKind(what: KindId, { at = Date.now(), detail }: OpOptions = {}): OpResult {
   const def = kindById(what);
-  const min = detail?.min ?? (what === 'roll' || what === 'study' ? def.defaultMin : settings.get().defaultMin || def.defaultMin);
+  const min = detail?.min ?? (what === 'roll' ? settings.get().roundMin : what === 'study' ? def.defaultMin : settings.get().defaultMin || def.defaultMin);
   const exact = at - min * MIN;
   const start = what === 'class' && settings.get().classOnHour ? classStart(exact, false) : exact;
   const event = addEvent(createEvent(what, start, { ...detail, min }, Date.now()));

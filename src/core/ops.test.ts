@@ -32,6 +32,15 @@ describe('ops', () => {
     const r = logKind('open-mat', { at: now - 10 * MIN, detail: { min: 60 } });
     expect(r.kind === 'logged' && r.event).toMatchObject({ type: 'open-mat', at: now - 70 * MIN, detail: { min: 60 } });
   });
+  it('a round logged after the fact is 5 minutes by default (the round length setting)', () => {
+    const now = Date.now();
+    const r = logKind('roll', { at: now });
+    expect(r.kind === 'logged' && r.event).toMatchObject({ at: now - 5 * MIN, detail: { min: 5 } });
+    settings.set({ roundMin: 7 });
+    const r2 = logKind('roll', { at: now });
+    expect(r2.kind === 'logged' && r2.event.detail?.min).toBe(7);
+    settings.set({ roundMin: 5 });
+  });
   it('stop with nothing running is a no-op with a reason', () => {
     expect(stopKind('drilling')).toMatchObject({ kind: 'noop', reason: 'No drilling is going' });
   });

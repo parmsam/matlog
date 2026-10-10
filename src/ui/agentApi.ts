@@ -117,7 +117,7 @@ function act(verb: 'log' | 'start' | 'stop' | 'toggle', what: string, opts: ActO
 export const RECIPES: { ask: string; code: string; note: string }[] = [
   { ask: 'Log a 60 minute open mat I just finished', code: "matlog.log('open-mat', { min: 60 })", note: 'Also class, drilling, comp. minutesAgo moves the end back; gi: "nogi" and techniques: ["knee cut"] add detail.' },
   { ask: 'I just bowed in to class', code: "matlog.start('class')", note: 'stop() ends it (and any round running inside it). toggle() does whichever applies.' },
-  { ask: 'Log a round: tapped Sam (purple) with an armbar, got stuck in half guard', code: "matlog.log('roll', { partner: 'Sam', belt: 'purple', subs: 'armbar', stuck: 'half guard' })", note: 'tapped: what you tapped to. Rounds default to 6 minutes; pass min.' },
+  { ask: 'Log a round: tapped Sam (purple) with an armbar, got stuck in half guard', code: "matlog.log('roll', { partner: 'Sam', belt: 'purple', subs: 'armbar', stuck: 'half guard' })", note: 'tapped: what you tapped to. Rounds default to 5 minutes (the round length in the round clock); pass min.' },
   { ask: 'At open mat I landed a knee cut twice and went for a berimbolo', code: "matlog.log('roll', { landed: 'knee cut', tried: 'berimbolo' })", note: 'One call per round. techniques() then shows each move as landed X of Y attempts.' },
   { ask: 'How many mat hours do I have?', code: 'matlog.state().matHours', note: 'state() also has rank, what is running, and the last 7 days.' },
   { ask: 'What do I get stuck in, and what do I tap to?', code: 'matlog.stats()', note: 'Counts and ratios. patterns() has plain sentences with what each is based on. Descriptive, never advice.' },

@@ -330,9 +330,9 @@ export function parseMarkdown(text: string): ParsedSession[] {
 
 /**
  * Turns parsed notes into events. A session without a date ended at `now`; rounds are laid out
- * one after another inside it (their own length, or 6 minutes), so they belong to it by time.
+ * one after another inside it (their own length, or `roundMin`, 5 by default), so they belong to it by time.
  */
-export function notesToEvents(parsed: ParsedSession[], now: number, defaultMin = 60): LogEvent[] {
+export function notesToEvents(parsed: ParsedSession[], now: number, defaultMin = 60, roundMin = kindById('roll').defaultMin): LogEvent[] {
   const out: LogEvent[] = [];
   for (const p of parsed) {
     const min = p.detail.min ?? (p.type === 'study' ? 10 : defaultMin);
@@ -342,7 +342,7 @@ export function notesToEvents(parsed: ParsedSession[], now: number, defaultMin =
     for (const pr of p.problems) out.push(newProblem(pr.text, now, { idea: pr.idea, source: pr.source, sessionId: session.id, solvedAt: pr.solved ? now : undefined }));
     let t = at + 60_000;
     for (const r of p.rolls) {
-      const rmin = r.detail.min ?? kindById('roll').defaultMin;
+      const rmin = r.detail.min ?? roundMin;
       out.push(createEvent('roll', Math.min(t, at + min * MIN), { ...r.detail, min: rmin }, now));
       t += (rmin + 1) * MIN;
     }

@@ -44,7 +44,7 @@ function preview(list: ParsedSession[]): string {
 /** Logs pasted Markdown. Returns how many sessions and rounds were added. */
 export function logMarkdown(text: string, now = Date.now()): { sessions: number; rolls: number; ids: string[] } {
   const parsed = parseMarkdown(text);
-  const events = notesToEvents(parsed, now, settings.get().defaultMin);
+  const events = notesToEvents(parsed, now, settings.get().defaultMin, settings.get().roundMin);
   addEvents(events);
   return { sessions: parsed.length, rolls: events.length - parsed.length, ids: events.map((e) => e.id) };
 }
