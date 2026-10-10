@@ -3,12 +3,13 @@ import { addEvent, app, deleteEvent, getEvent, revertTo, updateEvent } from '../
 import { newProblem, PROBLEM_SOURCES, problems } from '../core/notebook';
 import type { LogEvent, ProblemSource } from '../core/types';
 import { companionReact } from './companion';
-import { esc, openDialog, sheetHead } from './dom';
+import { esc } from './dom';
+import { registerTab, showNotebook } from './notebook';
 import { toast } from './toast';
 
 /** "Find problems, solve them": the list, oldest worries at the bottom, solved ones kept for the record. */
 
-const dialog = () => document.getElementById('problems') as HTMLDialogElement;
+const dialog = () => document.getElementById('problems') as HTMLElement;
 const shortDate = (ts: number) => dayDate(dayKey(ts)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 let source: ProblemSource = 'internal';
 let editing: string | null = null;
@@ -30,7 +31,7 @@ function item(e: LogEvent): string {
 
 function render() {
   const p = problems(app.get().events);
-  dialog().innerHTML = `${sheetHead('problems-title', 'Problems')}<div class="sheet-body">
+  dialog().innerHTML = `<div class="sheet-body">
     <p class="hint" style="margin-top:0">Find a problem, try an idea, mark it solved. The aim is to run out of them. Tinkering in the position before looking it up is worth noting.</p>
     <form data-add novalidate>
       <label class="field"><span class="field-label">New problem</span><textarea data-text rows="2" maxlength="300" placeholder="e.g. my underhook gets pummeled out"></textarea></label>
@@ -98,5 +99,7 @@ export function openProblems() {
       }
     });
   }
-  openDialog(d);
+  showNotebook('problems');
 }
+
+registerTab('problems', () => openProblems());

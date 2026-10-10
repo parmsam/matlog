@@ -31,8 +31,8 @@
           <button id="clock-open" class="icon-btn" type="button" aria-label="Round clock (K)" title="Round clock (K)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 2M10 3h4M12 3v3"/></svg>
           </button>
-          <button id="paste-open" class="icon-btn" type="button" aria-label="Paste a class note (V)" title="Paste a class note (V)">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M8.5 10h7M8.5 14h7M8.5 18h4"/></svg>
+          <button id="notebook-open" class="icon-btn" type="button" aria-label="Notebook: focus, problems, injuries, reflections (N)" title="Notebook (N)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h11a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H6z"/><path d="M6 3.5v17M3.5 7.5H6M3.5 12H6M3.5 16.5H6M9.5 8h6M9.5 11.5h6"/></svg>
           </button>
           <button id="tech-open" class="icon-btn" type="button" aria-label="Technique library (T)" title="Technique library (T)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="6" r="2.2"/><circle cx="12" cy="18" r="2.2"/><circle cx="19" cy="12" r="2.2"/><path d="M7 11l3-3.6M7 13l3 3.6M14 7.4l3 3.6M14 16.6l3-3.6"/></svg>
@@ -66,6 +66,7 @@
           <div class="section-head">
             <h2 id="recent-title">Recent</h2>
             <div class="head-actions">
+              <button id="paste-open" class="chip" type="button" title="Paste a class note (V)">📋 Paste a note</button>
               <button id="add-entry" class="chip" type="button">+ Add past session</button>
             </div>
           </div>
@@ -94,11 +95,23 @@
     <dialog id="tech" class="sheet tall" aria-labelledby="tech-title"></dialog>
     <dialog id="paste" class="sheet" aria-labelledby="paste-title"></dialog>
     <dialog id="shortcuts" class="sheet" aria-labelledby="shortcuts-title"></dialog>
-    <dialog id="focus-sheet" class="sheet tall" aria-labelledby="focus-title"></dialog>
-    <dialog id="problems" class="sheet" aria-labelledby="problems-title"></dialog>
+    <dialog id="notebook" class="sheet tall" aria-labelledby="notebook-title">
+      <div class="nb-top">
+      <div class="sheet-head"><h2 id="notebook-title" tabindex="-1">Notebook</h2><button type="button" class="icon-btn" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <div class="tabs" role="tablist" aria-label="Notebook">
+        <button type="button" role="tab" data-tab="focus" aria-controls="focus-sheet">Focus</button>
+        <button type="button" role="tab" data-tab="problems" aria-controls="problems">Problems</button>
+        <button type="button" role="tab" data-tab="injuries" aria-controls="injuries">Injuries</button>
+        <button type="button" role="tab" data-tab="reflections" aria-controls="reflections">Reflections</button>
+      </div>
+      </div>
+      <div id="focus-sheet" class="nb-panel" role="tabpanel" hidden></div>
+      <div id="problems" class="nb-panel" role="tabpanel" hidden></div>
+      <div id="injuries" class="nb-panel" role="tabpanel" hidden></div>
+      <div id="reflections" class="nb-panel" role="tabpanel" hidden></div>
+    </dialog>
     <dialog id="reflect" class="sheet" aria-labelledby="reflect-title"></dialog>
     <dialog id="clock" class="clock" aria-label="Round clock"></dialog>
-    <dialog id="injuries" class="sheet" aria-labelledby="injuries-title"></dialog>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

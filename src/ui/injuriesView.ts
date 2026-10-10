@@ -3,12 +3,13 @@ import { AREAS, injuries, injuryDays, injuryTitle, newInjury } from '../core/inj
 import { plural } from '../core/format';
 import { addEvent, app, deleteEvent, getEvent, revertTo, updateEvent } from '../core/log';
 import type { InjuryDetail, InjurySeverity, InjurySide, LogEvent } from '../core/types';
-import { esc, openDialog, sheetHead } from './dom';
+import { esc } from './dom';
+import { registerTab, showNotebook } from './notebook';
 import { toast } from './toast';
 
 /** The injury log: a record of what you logged, never medical advice. */
 
-const dialog = () => document.getElementById('injuries') as HTMLDialogElement;
+const dialog = () => document.getElementById('injuries') as HTMLElement;
 const shortDate = (ts: number) => dayDate(dayKey(ts)).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 const SEVERITY: [InjurySeverity, string][] = [
   ['minor', 'Minor'],
@@ -77,7 +78,7 @@ function form(): string {
 function render() {
   const now = Date.now();
   const { active, healed } = injuries(app.get().events, now);
-  dialog().innerHTML = `${sheetHead('injuries-title', 'Injuries')}<div class="sheet-body">
+  dialog().innerHTML = `<div class="sheet-body">
     <p class="hint" style="margin-top:0">A record of what got hurt, how, and what you’re doing differently while it heals. matlog only keeps what you write: it isn’t medical advice, so see a professional about anything that worries you.</p>
     ${draft ? form() : '<p><button type="button" class="chip primary" data-new>+ Log an injury</button></p>'}
     <section class="block"><h3>Now (${active.length})</h3>${active.length ? `<ul class="focus-list">${active.map((e) => item(e, now)).join('')}</ul>` : '<p class="empty">Nothing logged as hurting right now.</p>'}</section>
@@ -206,8 +207,10 @@ export function openInjuries(opts: { log?: { at?: number; sessionId?: string; ro
       render();
     });
   }
-  openDialog(d);
+  showNotebook('injuries');
 }
+
+registerTab('injuries', () => openInjuries());
 
 /** "🩹 Left knee · 12 days" for the home screen, or '' with nothing active. */
 export function injuryLine(now: number): string {

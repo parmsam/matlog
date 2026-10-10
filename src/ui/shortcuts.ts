@@ -7,6 +7,7 @@ export function openShortcuts() {
   d.innerHTML = `${sheetHead('shortcuts-title', 'Keyboard shortcuts')}<div class="sheet-body"><table class="data"><tbody>
     ${KINDS.map((k) => row([k.key.toUpperCase()], `Start / stop ${k.label.toLowerCase()} (Shift: log a finished one)`)).join('')}
     ${row(['K'], 'Round clock')}
+    ${row(['N'], 'Notebook (the tab you used last)')}
     ${row(['B'], 'Problems')}
     ${row(['I'], 'Injury log')}
     ${row(['U'], 'Undo')}

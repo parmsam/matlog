@@ -6,10 +6,11 @@ import { addEvent, app, deleteEvent, getEvent, revertTo, updateEvent } from '../
 import { problems } from '../core/notebook';
 import { rollStats, techniqueUses } from '../core/stats';
 import type { FocusDetail, FocusRole, LogEvent } from '../core/types';
-import { esc, openDialog, sheetHead } from './dom';
+import { esc } from './dom';
+import { closeNotebook, registerTab, showNotebook } from './notebook';
 import { toast } from './toast';
 
-const dialog = () => document.getElementById('focus-sheet') as HTMLDialogElement;
+const dialog = () => document.getElementById('focus-sheet') as HTMLElement;
 const MAX = 140;
 const DAY = 86_400_000;
 
@@ -129,7 +130,7 @@ function card(v: FocusView, now: number): string {
           : `<button type="button" class="chip" data-again="${v.event.id}">Start again</button>`;
   return `<li class="focus-item ${v.state}">
     <div class="focus-item-head"><b>${esc(v.f.text)}</b><span class="tag">${esc(roleLabel(v.f.role))}</span></div>
-    <span class="entry-meta">${esc(blockLine(v, now))} · ${plural(v.f.blocks.length, 'block')} · ${esc(numbers(v.f.text, v.block.from, v.block.to ?? now))}</span>
+    <span class="entry-meta">${esc([blockLine(v, now), plural(v.f.blocks.length, 'block'), numbers(v.f.text, v.block.from, v.block.to ?? now)].filter(Boolean).join(' · '))}</span>
     ${v.f.ifWorks || v.f.ifFails ? `<span class="entry-meta">${v.f.ifWorks ? `If it works → ${esc(v.f.ifWorks)}` : ''}${v.f.ifWorks && v.f.ifFails ? ' · ' : ''}${v.f.ifFails ? `If it fails → ${esc(v.f.ifFails)}` : ''}</span>` : ''}
     ${compare}
     <div class="head-actions">${actions}<button type="button" class="chip" data-edit="${v.event.id}">Edit</button>${ladder}</div>
@@ -179,7 +180,7 @@ function render() {
   const resting = all.filter((v) => v.state === 'resting');
   const done = all.filter((v) => v.state === 'done');
   const list = (title: string, vs: FocusView[]) => (vs.length ? `<section class="block"><h3>${title}</h3><ul class="focus-list">${vs.map((v) => card(v, now)).join('')}</ul></section>` : '');
-  dialog().innerHTML = `${sheetHead('focus-title', 'Working on')}<div class="sheet-body">
+  dialog().innerHTML = `<div class="sheet-body">
     <p class="hint" style="margin-top:0">A few connected skills at a time, in blocks of a week or two: work one, rest it, come back and see what stuck. You pick them; matlog never will. It counts what happens with anything that names a technique, position or submission.</p>
     ${draft ? editor(now) : `<p><button type="button" class="chip primary" data-new>+ New focus</button></p>`}
     ${list('Now', running)}
@@ -310,12 +311,12 @@ export function openFocus(opts: { new?: boolean } = {}) {
       else if (ds.again) change(ds.again, nextBlock, 'New block started');
       else if (ds.finish) change(ds.finish, finishFocus, 'Marked done');
       else if (ds.ladder) {
-        d.close();
+        closeNotebook();
         openLadder(ds.ladder);
       }
     });
   }
-  openDialog(d);
+  showNotebook('focus');
 }
 
 /** For the API and tests: the focuses as plain data. */
@@ -323,3 +324,5 @@ export function focusSummary(e: LogEvent, now: number) {
   const v = focuses([e], now)[0];
   return v ? { text: v.f.text, role: v.f.role, state: v.state, week: v.week, weeks: v.weeks, line: numbers(v.f.text, v.block.from, v.block.to ?? now) } : null;
 }
+
+registerTab('focus', () => openFocus());

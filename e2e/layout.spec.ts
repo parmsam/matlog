@@ -24,3 +24,26 @@ test('no sideways scrolling in the injury log and the reflection sheet', async (
   await d.getByRole('button', { name: 'Knee' }).click();
   expect(await d.evaluate((x) => x.scrollWidth - x.clientWidth)).toBeLessThanOrEqual(0);
 });
+
+test('a long technique chip leaves the text box usable', async ({ page }) => {
+  await open(page);
+  await page.keyboard.press('Shift+C');
+  const sheet = page.locator('#sheet');
+  const input = sheet.locator('[data-tags="techniques"]');
+  await input.fill('Shoulder post wrist grab arm drag to the back take');
+  await input.press('Enter');
+  const box = await sheet.locator('[data-tags="techniques"]').boundingBox();
+  expect(box!.width).toBeGreaterThanOrEqual(120);
+  expect(await sheet.evaluate((x) => x.scrollWidth - x.clientWidth)).toBeLessThanOrEqual(0);
+});
+
+test('the Notebook tabs all fit on a phone', async ({ page }) => {
+  await open(page);
+  await page.keyboard.press('n');
+  const tabs = page.locator('#notebook .tabs');
+  expect(await tabs.evaluate((x) => x.scrollWidth - x.clientWidth)).toBeLessThanOrEqual(0);
+  for (const name of ['Focus', 'Problems', 'Injuries', 'Reflections']) {
+    const t = page.locator('#notebook').getByRole('tab', { name });
+    expect(await t.evaluate((x) => x.scrollWidth - x.clientWidth)).toBeLessThanOrEqual(1);
+  }
+});

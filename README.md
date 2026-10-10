@@ -20,7 +20,7 @@ matlog is a sibling of [tinylog](https://github.com/parmsam/tinylog) and uses th
 - **Open mat flow.** Rounds belong to the session they happen in (class, open mat, drilling, or a comp, where they're matches): a round started during a session or added from its sheet stays with it even if you change its times, and one logged afterwards joins the session it falls in (or ended up to 10 minutes before). A round started on its own offers to start open mat; saving one offers **Next round**; a session's sheet lists its rounds with **+ Add a round**. The **round clock** (<kbd>K</kbd>) is a full-screen gym timer with round and rest lengths that buzzes at time and keeps the screen awake.
 - **Round log.** Stopping a round asks who you rolled with (partner, belt, size), where it started (positional rounds, top or bottom), subs you hit, what you tapped to, **moves you landed and moves you went for** (sweeps, passes, takedowns, back takes), and where you got stuck. Every field is optional and one tap away.
 
-**Train with intention**
+**Train with intention**: everything here lives in one **Notebook** (<kbd>N</kbd>), with tabs for Focus, Problems, Injuries and Reflections.
 - **Focus blocks.** Say what you're working on, a few connected skills at a time: a main skill, a complementary one, a habit, an experiment, a side project. Work each in a 1- or 2-week block, then rest it, go again, or call it done. Write where you go if it works and if it fails, and an optional reps target ("1 of 2 reps today"). When a focus names a technique, position or submission, matlog counts what happens in each block, so after a break you can see what stuck. You pick them; matlog never will.
 - **Problems.** Find a problem, write an idea to try, mark it solved. Note whether someone told you, you noticed it, or you see it coming, and whether you tinkered before looking it up.
 - **Reflect later.** A while after a session (two hours by default), a prompt opens a five-minute notebook: the current block, a problem you hit, an idea to try, and a check-in on whether you enjoyed it and followed your plan. Starting a session shows today's focus in the toast, like glancing at a notebook before rounds.
@@ -105,7 +105,8 @@ Press <kbd>?</kbd> in the app to see them all.
 | <kbd>C</kbd> <kbd>O</kbd> <kbd>D</kbd> <kbd>P</kbd> <kbd>R</kbd> | Start / stop class, open mat, drilling, comp, round (with <kbd>Shift</kbd>: log a finished one) |
 | <kbd>U</kbd> | Undo |
 | <kbd>G</kbd> <kbd>T</kbd> <kbd>V</kbd> | Progress, technique library, paste a class note |
-| <kbd>F</kbd> <kbd>B</kbd> <kbd>I</kbd> <kbd>K</kbd> | Working on (focus blocks), problems, injury log, round clock |
+| <kbd>N</kbd> | Notebook (the tab you used last) |
+| <kbd>F</kbd> <kbd>B</kbd> <kbd>I</kbd> <kbd>K</kbd> | Notebook → Focus, Problems, Injuries; round clock |
 | <kbd>S</kbd> | Start / stop study |
 | <kbd>M</kbd> | Copy the last 7 days as Markdown |
 | <kbd>,</kbd> | Settings |
