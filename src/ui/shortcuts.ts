@@ -17,6 +17,7 @@ export function openShortcuts() {
     ${row(['V'], 'Paste a class note')}
     ${row(['M'], 'Copy the last 7 days as Markdown')}
     ${row([','], 'Settings')}
+    ${row([navigator.platform.startsWith('Mac') ? '⌘' : 'Ctrl', 'K'], 'Command palette: type to find any of these, or a technique')}
     ${row(['?'], 'This list')}
   </tbody></table></div>`;
   openDialog(d);

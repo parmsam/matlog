@@ -14,6 +14,7 @@ import { openProgress } from './ui/progressView';
 import { setupPwa } from './ui/pwa';
 import { openSettings } from './ui/settingsView';
 import { openShortcuts } from './ui/shortcuts';
+import { openPalette, paletteKey, setCopyWeek } from './ui/palette';
 import { openTech } from './ui/techView';
 import { applyTheme } from './ui/theme';
 import { mountBanner, showBanner } from './ui/banner';
@@ -56,6 +57,7 @@ document.getElementById('companion')!.addEventListener('click', companionSay);
 onLadder((id) => openTech(id));
 document.getElementById('paste-open')!.addEventListener('click', () => openPaste());
 document.getElementById('shortcuts-open')!.addEventListener('click', openShortcuts);
+document.getElementById('palette-open')!.addEventListener('click', openPalette);
 
 document.getElementById('focus')!.addEventListener('click', () => openFocus());
 
@@ -114,8 +116,11 @@ async function copyWeek() {
   toast(ok ? 'Copied the last 7 days as Markdown' : "Couldn't copy");
 }
 
-// Keyboard: a letter per card starts/stops it (Shift: log a finished one), plus views.
+setCopyWeek(() => void copyWeek());
+
+// Keyboard: a letter per card starts/stops it (Shift: log a finished one), plus views. Ctrl/⌘K: the palette.
 document.addEventListener('keydown', (e) => {
+  if (paletteKey(e)) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (document.querySelector('dialog[open]')) return;
   const el = e.target as HTMLElement;

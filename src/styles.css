@@ -1226,6 +1226,76 @@ kbd {
   text-align: center;
 }
 
+/* ---------- Command palette ---------- */
+.palette {
+  width: min(560px, 100vw - 32px);
+  max-height: min(480px, 70dvh);
+  margin: max(12vh, env(safe-area-inset-top) + 12px) auto auto;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  overflow: hidden;
+  flex-direction: column;
+}
+.palette[open] {
+  display: flex;
+  animation: palette-in 0.15s var(--ease);
+}
+@keyframes palette-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+.palette::backdrop {
+  background: rgb(0 0 0 / 0.4);
+}
+.palette input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.05rem;
+  outline: none;
+}
+.palette ul {
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.palette li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.palette li[aria-selected='true'] {
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+}
+.palette li kbd {
+  flex: none;
+  color: var(--muted);
+}
+.palette .pal-empty {
+  color: var(--muted);
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  .palette[open] {
+    animation: none;
+  }
+}
+
 /* ---------- Companion ---------- */
 .buddy {
   width: 100%;

@@ -113,6 +113,7 @@ Press <kbd>?</kbd> in the app to see them all.
 | <kbd>S</kbd> | Start / stop study |
 | <kbd>M</kbd> | Copy the last 7 days as Markdown |
 | <kbd>,</kbd> | Settings |
+| <kbd>Ctrl</kbd>/<kbd>⌘</kbd> <kbd>K</kbd> | Command palette: type a few letters to run any of the above, change the theme, back up, or jump to a technique |
 
 ## Shortcuts, Siri and links
 
