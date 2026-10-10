@@ -12,6 +12,8 @@ import { toast } from './toast';
 
 const dialog = () => document.getElementById('tech') as HTMLDialogElement;
 let filter = '';
+/** The list: what you've used (newest first), or the whole library by type. */
+let scope: 'used' | 'all' = 'used';
 /** The technique open in detail, or a new one being added ('' id). */
 let detail: string | null = null;
 let form: CustomTechnique | null = null;
@@ -43,6 +45,35 @@ function rows(now: number): string {
     )
     .join('')}</tbody></table>`;
 }
+
+/** Every technique, by type: built-ins, your own, anything you typed, and the hidden ones at the end. */
+function allRows(): string {
+  const uses = new Map(techniqueUses(app.get().events).map((u) => [u.id, u]));
+  const counts = techNoteCounts(app.get().events);
+  const q = filter.trim().toLowerCase();
+  const kindOf = (id: string) => TECH_KINDS.find((k) => k.id === id)?.label ?? '';
+  const matches = (t: { label: string; aka?: string[]; from?: string; to?: string; kind?: string }) =>
+    !q || [t.label, ...(t.aka ?? []), t.from ? positionLabel(t.from) : '', t.to ? positionLabel(t.to) : '', t.kind ? kindOf(t.kind) : ''].some((x) => x.toLowerCase().includes(q));
+  const byName = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label);
+  const techs = allTechniques().filter(matches).sort(byName);
+  // Typed text that never became a technique: logged, so it belongs here too.
+  const loose = [...uses.values()].filter((u) => !techniqueById(u.id) && matches(u)).sort(byName);
+  const row = (id: string, label: string, from?: string, to?: string) => {
+    const u = uses.get(id);
+    const log = u ? [u.sessions ? `drilled ${u.sessions}×` : '', u.attempts ? `landed ${u.landed} of ${u.attempts}` : ''].filter(Boolean).join(' · ') || 'in your notes' : '';
+    return `<tr><td><button type="button" class="link-btn" data-open="${esc(id)}">${esc(label)}</button>${counts.get(id) ? ` <span class="entry-meta" title="Your notes">📝 ${counts.get(id)}</span>` : ''}${isCustom(id) ? ' <span class="tag">yours</span>' : ''}</td><td class="entry-meta">${from && to ? `${esc(positionLabel(from))} → ${esc(positionLabel(to))}` : ''}</td><td class="num">${log || '<span class="entry-meta">–</span>'}</td></tr>`;
+  };
+  const group = (title: string, items: string[]) =>
+    items.length ? `<h4 class="tech-group">${title} <span class="entry-meta">${items.length}</span></h4><table class="data"><thead><tr><th>Technique</th><th>From → to</th><th class="num">Your log</th></tr></thead><tbody>${items.join('')}</tbody></table>` : '';
+  const html = [
+    ...TECH_KINDS.map((k) => group(`${k.label}s`, techs.filter((t) => !t.hidden && t.kind === k.id).map((t) => row(t.id, t.label, t.from, t.to)))),
+    group('Typed in, no type yet', loose.map((u) => row(u.id, u.label))),
+    group('Hidden from suggestions', techs.filter((t) => t.hidden).map((t) => row(t.id, t.label, t.from, t.to))),
+  ].join('');
+  return html || '<p class="empty">No technique matches.</p>';
+}
+
+const listRows = (now: number) => (scope === 'all' ? allRows() : rows(now));
 
 const cell = (c: LadderCell) => (c.attempts ? `<b>${c.landed}</b>/${c.attempts}` : '<span class="entry-meta">–</span>');
 
@@ -152,10 +183,12 @@ function render() {
             const g = positionGraph(events);
             const stuck = new Set(rollStats(events).stuck.map((s) => s.id));
             const unused = allTechniques().filter((t) => !techniqueUses(events).some((u) => u.id === t.id)).length;
-            return `<section><div class="section-head" style="margin-top:0"><h3 style="margin:0">Last drilled or tried</h3><button type="button" class="chip" data-add>+ Add a technique</button></div>
-              <p class="basis" style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Newest first. Tap one for your notes on it and its skill ladder. ${unused} techniques in the library you haven't used yet; anything you type is kept too.</p>
-              <input class="search" type="search" placeholder="Filter by technique or position" value="${esc(filter)}" data-filter aria-label="Filter techniques" />
-              <div data-rows>${rows(now)}</div>
+            const all = scope === 'all';
+            return `<section><div class="section-head" style="margin-top:0"><h3 style="margin:0">${all ? 'All techniques' : 'Last drilled or tried'}</h3><button type="button" class="chip" data-add>+ Add a technique</button></div>
+              <div class="picks" role="group" aria-label="Show" style="margin:0 0 8px"><button type="button" class="pick" data-scope="used" aria-pressed="${!all}">Used</button><button type="button" class="pick" data-scope="all" aria-pressed="${all}">All ${allTechniques().length}</button></div>
+              <p class="basis" style="color:var(--muted);font-size:.82rem;margin:0 0 10px">${all ? 'The whole library by type, A to Z, with what your log says about each. Tap one to open it; hidden ones are at the end, to bring back.' : `Newest first. Tap one for your notes on it and its skill ladder. ${unused} techniques in the library you haven't used yet (see All); anything you type is kept too.`}</p>
+              <input class="search" type="search" placeholder="${all ? 'Filter by name, position or type' : 'Filter by technique or position'}" value="${esc(filter)}" data-filter aria-label="Filter techniques" />
+              <div data-rows>${listRows(now)}</div>
             </section>
             <section class="block"><h3>Position graph</h3>
               <p class="basis">Built from your own logs: each line is a technique you've drilled or landed in a round, from one position to another; thicker means more. A dashed outline is somewhere you noted getting stuck.</p>
@@ -192,7 +225,7 @@ export function openTech(id?: string) {
       const el = e.target as HTMLInputElement;
       if (el.dataset.filter === undefined) return;
       filter = el.value;
-      d.querySelector('[data-rows]')!.innerHTML = rows(Date.now());
+      d.querySelector('[data-rows]')!.innerHTML = listRows(Date.now());
     });
     d.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -259,6 +292,10 @@ export function openTech(id?: string) {
         render();
         toast('Note deleted', { actions: [{ label: 'Undo', primary: true, run: () => (revertTo(prev), render()) }] });
         return;
+      }
+      if (ds.scope) {
+        scope = ds.scope as typeof scope;
+        return render();
       }
       if (ds.open) {
         detail = ds.open;

@@ -34,7 +34,8 @@ matlog is a sibling of [tinylog](https://github.com/parmsam/tinylog) and uses th
 - **Edit the library.** Rename any technique (built-in or your own), add other names, change its type and positions, mark it as a **variation** of another (a parent shows its numbers with its variations), or hide built-ins you don't use from suggestions. Built-ins are never deleted, and "Back to the built-in version" undoes your changes.
 - **Notes on any technique**: key details (pinned to the top), observations, questions and sources with a link, plus what your sessions and problems already say about it.
 - Tag techniques per session from a built-in list of about 60 (takedowns, sweeps, passes, escapes, submissions), or type your own. **Add your own techniques** with a type and where they start and end, and they join the suggestions, the position graph and the skill ladder; anything already logged under that name links up.
-- **Last drilled or tried**: every technique, how many sessions you drilled it, and **landed X of Y** in rounds.
+- **Last drilled or tried**: every technique you've used, how many sessions you drilled it, and **landed X of Y** in rounds.
+- **All**: the whole library by type, A to Z, with what your log says about each. The filter searches names, other names, positions and types, and hidden techniques sit at the end so you can bring them back.
 - **Position graph**: standing → guard → passing → mount/back → submission, drawn only from techniques you've drilled or landed. Thicker lines mean more sessions, and a dashed outline marks positions you've noted getting stuck in.
 
 <p align="center">
