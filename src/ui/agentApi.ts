@@ -1,6 +1,6 @@
 import { positionLabel, subLabel, techniqueLabel } from '../core/catalog';
 import { addDays, dayKey, dayStart } from '../core/days';
-import { isSession, minutesOf } from '../core/events';
+import { isNotebook, isSession, minutesOf } from '../core/events';
 import { KINDS, ongoingFor, type KindId } from '../core/kinds';
 import { parseLinkAction } from '../core/linkActions';
 import { app, settings } from '../core/log';
@@ -9,7 +9,10 @@ import { logKind, startKind, stopKind, toggleKind, type OpResult } from '../core
 import { currentRank, matMinutes, patterns, rankTimeline, rollsIn, rollStats, techniqueUses, weekRecap } from '../core/stats';
 import type { LogEvent } from '../core/types';
 import { logMarkdown } from './pasteView';
-import { matchFocus, focusProgress, setFocus } from '../core/focus';
+import { focuses, focusProgress, matchFocus, newFocus, roleLabel } from '../core/focus';
+import { newProblem, problems } from '../core/notebook';
+import { addEvent, updateEvent } from '../core/log';
+import type { FocusRole, ProblemSource } from '../core/types';
 import { undoLast } from './toast';
 
 /**
@@ -38,6 +41,14 @@ export interface ActOptions {
   /** Moves you went for but didn't land. */
   tried?: string[] | string;
   outcome?: 'win' | 'loss' | 'draw';
+  /** Positional round: where it started, and your side. */
+  from?: string;
+  role?: 'top' | 'bottom';
+  /** Session check-in: enjoyment 1–5, and whether you followed your plan. */
+  enjoy?: number;
+  plan?: 'yes' | 'partly' | 'no';
+  /** Study: what you studied. */
+  source?: string;
   note?: string;
 }
 
@@ -49,6 +60,7 @@ function toEntry(e: LogEvent, now = Date.now()) {
   const d = e.detail ?? {};
   const base = { id: e.id, type: e.type, start: iso(e.at), minutes: e.type === 'promotion' ? null : minutesOf(e, now), ongoing: e.type !== 'promotion' && e.endAt === undefined && !d.min, note: d.note ?? null };
   if (e.type === 'promotion') return { ...base, belt: d.belt ?? null, stripes: d.stripes ?? 0 };
+  if (e.type === 'study') return { ...base, source: d.source ?? null, url: d.url ?? null, techniques: (d.techniques ?? []).map(techniqueLabel) };
   if (e.type === 'roll')
     return {
       ...base,
@@ -59,10 +71,12 @@ function toEntry(e: LogEvent, now = Date.now()) {
       subsFor: (d.subsFor ?? []).map(subLabel),
       subsAgainst: (d.subsAgainst ?? []).map(subLabel),
       stuck: (d.stuck ?? []).map(positionLabel),
+      from: d.start ? positionLabel(d.start) : null,
+      role: d.role ?? null,
       landed: (d.landed ?? []).map(techniqueLabel),
       tried: (d.tried ?? []).map(techniqueLabel),
     };
-  return { ...base, gi: d.attire ?? null, techniques: (d.techniques ?? []).map(techniqueLabel), rounds: rollsIn(e, app.get().events, now).length };
+  return { ...base, gi: d.attire ?? null, techniques: (d.techniques ?? []).map(techniqueLabel), rounds: rollsIn(e, app.get().events, now).length, enjoy: d.enjoy ?? null, plan: d.plan ?? null };
 }
 
 /** Runs a verb through the link-action parser, so names, aliases and validation match `?do=` links. */
@@ -82,6 +96,11 @@ function act(verb: 'log' | 'start' | 'stop' | 'toggle', what: string, opts: ActO
     landed: joined(opts.landed),
     tried: joined(opts.tried),
     outcome: opts.outcome,
+    from: opts.from,
+    role: opts.role,
+    enjoy: opts.enjoy,
+    plan: opts.plan,
+    source: opts.source,
     note: opts.note,
   };
   for (const [k, v] of Object.entries(map)) if (v !== undefined && v !== null && v !== '') q.set(k, String(v));
@@ -102,19 +121,22 @@ export const RECIPES: { ask: string; code: string; note: string }[] = [
   { ask: 'At open mat I landed a knee cut twice and went for a berimbolo', code: "matlog.log('roll', { landed: 'knee cut', tried: 'berimbolo' })", note: 'One call per round. techniques() then shows each move as landed X of Y attempts.' },
   { ask: 'How many mat hours do I have?', code: 'matlog.state().matHours', note: 'state() also has rank, what is running, and the last 7 days.' },
   { ask: 'What do I get stuck in, and what do I tap to?', code: 'matlog.stats()', note: 'Counts and ratios. patterns() has plain sentences with what each is based on. Descriptive, never advice.' },
-  { ask: "I'm working on my knee cut", code: "matlog.focus('knee cut')", note: 'Shown on the home screen. matlog.focus() later reports sessions since, and rounds you went for or landed it. Never set one the person did not ask for.' },
+  { ask: "I'm working on my knee cut for the next two weeks", code: "matlog.focus('knee cut', { role: 'main', blockDays: 14 })", note: 'Shown on the home screen. matlog.focus() reports each focus and what happened this block. Never add one the person did not ask for.' },
+  { ask: 'I keep getting flattened in half guard', code: "matlog.problems('getting flattened in half guard', { source: 'internal' })", note: 'matlog.problems() lists open and solved ones; matlog.solve(id) marks one solved.' },
   { ask: 'Log this class note', code: 'matlog.importMarkdown(text)', note: 'Same format as the Paste dialog and markdown() output.' },
 ];
 
 const HELP = `matlog: BJJ training journal scripting API (window.matlog). Data stays in this browser.
-All calls are synchronous. Types: class, open-mat, drilling, comp, roll.
+All calls are synchronous. Types: class, open-mat, drilling, comp, roll, study (study isn't mat time).
 
 matlog.state()                 rank, mat hours, what's running, the last 7 days
 matlog.log(type, opts?)        log a finished one, ending now (or minutesAgo); opts:
                                { min, minutesAgo, gi: 'gi'|'nogi', techniques, note,
                                  partner, belt, size: 'smaller'|'similar'|'bigger',     (rolls)
                                  subs, tapped, landed, tried, stuck,                    (rolls; lists: array or comma text)
-                                 outcome: 'win'|'loss'|'draw' }
+                                 outcome: 'win'|'loss'|'draw', from, role: 'top'|'bottom',
+                                 enjoy: 1-5, plan: 'yes'|'partly'|'no',               (sessions)
+                                 source }                                              (study)
 matlog.start(type, opts?)      start the timer (one session at a time; a round can run inside it)
 matlog.stop(type, opts?)       stop it
 matlog.toggle(type, opts?)     start or stop
@@ -126,7 +148,10 @@ matlog.parseMarkdown(text)     preview what importMarkdown would log, without lo
 matlog.stats()                 subs for/against, stuck positions, partners, by belt
 matlog.techniques()            drilled in sessions, landed/tried in rounds, from → to positions
 matlog.patterns()              plain descriptions, each with what it's based on (not advice)
-matlog.focus(text?)            read or set "Working on" ("" clears); counts what happened since it was set
+matlog.focus(text?, opts?)     focuses (blocks, what happened this block); with text, adds one:
+                               { role: 'main'|'complement'|'habit'|'experiment'|'side', blockDays: 7|14, ifWorks, ifFails, target }
+matlog.problems(text?, opts?)  open and solved problems; with text, logs one { source: 'internal'|'external'|'predictive', idea }
+matlog.solve(id)               mark a problem solved
 
 Common requests:
 ${RECIPES.map((r) => `- ${r.ask}\n    ${r.code}\n    ${r.note}`).join('\n')}`;
@@ -151,7 +176,10 @@ export function createAgentApi() {
         matHours: Math.round(matMinutes(events, now) / 6) / 10,
         sessions: events.filter((e) => !e.deleted && isSession(e)).length,
         running,
-        workingOn: prefs.focus ? { text: prefs.focus, since: prefs.focusSince ? iso(prefs.focusSince) : null } : null,
+        workingOn: focuses(events, now)
+          .filter((v) => v.state === 'active' || v.state === 'over')
+          .map((v) => ({ text: v.f.text, role: roleLabel(v.f.role), week: v.week, weeks: v.weeks, blockOver: v.state === 'over' })),
+        openProblems: problems(events).open.length,
         last7Days: { sessions: r.sessions, minutes: r.minutes, rounds: r.rolls, subsFor: r.subsFor, subsAgainst: r.subsAgainst, techniques: r.techniques },
       };
     },
@@ -164,7 +192,7 @@ export function createAgentApi() {
       const from = dayStart(addDays(dayKey(now), -(Math.max(1, Math.round(days)) - 1)));
       return app
         .get()
-        .events.filter((e) => !e.deleted && e.at >= from)
+        .events.filter((e) => !e.deleted && !isNotebook(e) && e.at >= from)
         .sort((a, b) => a.at - b.at)
         .map((e) => toEntry(e, now));
     },
@@ -201,22 +229,46 @@ export function createAgentApi() {
       return techniqueUses(app.get().events).map((u) => ({ technique: u.label, sessions: u.sessions, landed: u.landed, attempts: u.attempts, last: iso(u.lastAt), from: u.from ? positionLabel(u.from) : null, to: u.to ? positionLabel(u.to) : null }));
     },
     patterns: () => patterns(app.get().events, Date.now()),
-    focus(text?: string) {
+    /** Running and resting focuses with what happened in the current block. With text, adds a focus (only when the person asks). */
+    focus(text?: string, opts: { role?: FocusRole; blockDays?: 7 | 14; ifWorks?: string; ifFails?: string; target?: number } = {}) {
       const now = Date.now();
       if (text !== undefined) {
-        if (typeof text !== 'string') throw new Error('matlog: focus text is a string ("" clears it)');
-        settings.set(setFocus(settings.get(), text, now));
+        if (typeof text !== 'string' || !text.trim()) throw new Error('matlog: focus text is a non-empty string');
+        if (opts.role && !['main', 'complement', 'habit', 'experiment', 'side'].includes(opts.role)) throw new Error('matlog: role is main, complement, habit, experiment or side');
+        addEvent(newFocus(text, now, opts));
       }
-      const s = settings.get();
-      if (!s.focus) return { text: null, history: s.focusHistory.map((h) => ({ text: h.text, from: iso(h.from), to: iso(h.to) })) };
-      const match = matchFocus(s.focus, techniqueUses(app.get().events).map((u) => u.id));
-      return {
-        text: s.focus,
-        since: s.focusSince ? iso(s.focusSince) : null,
-        tracking: match,
-        sinceThen: focusProgress(app.get().events, match, s.focusSince ?? now, now),
-        history: s.focusHistory.map((h) => ({ text: h.text, from: iso(h.from), to: iso(h.to) })),
-      };
+      const used = techniqueUses(app.get().events).map((u) => u.id);
+      return focuses(app.get().events, now).map((v) => ({
+        text: v.f.text,
+        role: roleLabel(v.f.role),
+        state: v.state,
+        week: v.state === 'active' ? v.week : null,
+        weeks: v.weeks,
+        blocks: v.f.blocks.map((b) => ({ from: iso(b.from), to: b.to ? iso(b.to) : null })),
+        ifWorks: v.f.ifWorks ?? null,
+        ifFails: v.f.ifFails ?? null,
+        tracking: matchFocus(v.f.text, used),
+        thisBlock: focusProgress(app.get().events, matchFocus(v.f.text, used), v.block.from, v.block.to ?? now),
+      }));
+    },
+    /** Open and solved problems. With text, logs a problem (and an idea to try). */
+    problems(text?: string, opts: { source?: ProblemSource; idea?: string } = {}) {
+      const now = Date.now();
+      if (text !== undefined) {
+        if (typeof text !== 'string' || !text.trim()) throw new Error('matlog: problem text is a non-empty string');
+        if (opts.source && !['internal', 'external', 'predictive'].includes(opts.source)) throw new Error('matlog: source is internal, external or predictive');
+        addEvent(newProblem(text, now, opts));
+      }
+      const p = problems(app.get().events);
+      const row = (e: LogEvent) => ({ id: e.id, text: e.detail!.problem!.text, idea: e.detail!.problem!.idea ?? null, source: e.detail!.problem!.source ?? null, logged: iso(e.at), solved: e.detail!.problem!.solvedAt ? iso(e.detail!.problem!.solvedAt) : null });
+      return { open: p.open.map(row), solved: p.solved.map(row) };
+    },
+    /** Marks a problem solved (by id from problems()). */
+    solve(id: string) {
+      const e = app.get().events.find((x) => x.id === id && x.type === 'problem' && !x.deleted);
+      if (!e) throw new Error('matlog: no problem with that id (see matlog.problems())');
+      updateEvent(id, { detail: { ...e.detail, problem: { ...e.detail!.problem!, solvedAt: Date.now() } } });
+      return this.problems();
     },
   };
 }

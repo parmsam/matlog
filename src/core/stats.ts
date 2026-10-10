@@ -1,8 +1,8 @@
-import { POSITIONS, positionLabel, subLabel, techniqueById, techniqueLabel } from './catalog';
+import { POSITIONS, positionLabel, resolveSub, SUBMISSIONS, subLabel, techniqueById, techniqueLabel } from './catalog';
 import { addDays, dayDate, dayKey, dayStart, weekOf } from './days';
 import { isSession, minutesOf, spanEnd } from './events';
 import { plural } from './format';
-import type { Belt, LogEvent, PatchId, Settings } from './types';
+import { BELTS, type Belt, type LogEvent, type PatchId, type Role, type Settings, type Size } from './types';
 
 /**
  * Descriptive numbers from the log. Nothing here is advice: patterns say what happened and what
@@ -346,3 +346,78 @@ export function patterns(events: LogEvent[], now: number): Pattern[] {
 
 /** "Mon, Oct 6" style title for a week starting `w`. */
 export const weekLabel = (w: string) => dayDate(w).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+// ---------- Skill ladder ----------
+
+export type Level = 'lower' | 'similar' | 'higher';
+export const SIZES_ORDER: Size[] = ['smaller', 'similar', 'bigger'];
+export const LEVELS: Level[] = ['lower', 'similar', 'higher'];
+
+export interface LadderCell {
+  attempts: number;
+  landed: number;
+}
+
+/** Partner's belt against yours at the time of the round. */
+export function relativeLevel(partner: Belt, mine: Belt): Level {
+  const d = BELTS.indexOf(partner) - BELTS.indexOf(mine);
+  return d < 0 ? 'lower' : d > 0 ? 'higher' : 'similar';
+}
+
+/**
+ * A technique against partners by size (smaller / similar / bigger) × belt (lower / similar /
+ * higher than yours then): rounds you went for it, and landed it. A submission counts finishes.
+ * Rounds without the partner's belt or size are counted in `unknown`.
+ */
+export function skillLadder(events: LogEvent[], id: string, prefs: Pick<Settings, 'startBelt' | 'startStripes'>): { cells: Record<Size, Record<Level, LadderCell>>; unknown: LadderCell; total: LadderCell } {
+  const blank = (): LadderCell => ({ attempts: 0, landed: 0 });
+  const cells = Object.fromEntries(SIZES_ORDER.map((s) => [s, Object.fromEntries(LEVELS.map((l) => [l, blank()]))])) as Record<Size, Record<Level, LadderCell>>;
+  const unknown = blank();
+  const total = blank();
+  const sub = resolveSub(techniqueById(id)?.label ?? id);
+  const isSub = SUBMISSIONS.some((s) => s.id === sub) && (techniqueById(id)?.kind === 'submission' || SUBMISSIONS.some((s) => s.id === id));
+  for (const r of rolls(events)) {
+    const d = r.detail ?? {};
+    const landed = !!d.landed?.includes(id) || (isSub && !!d.subsFor?.includes(sub));
+    const tried = landed || !!d.tried?.includes(id);
+    if (!tried) continue;
+    const cell = d.belt && d.size ? cells[d.size][relativeLevel(d.belt, currentRank(events, prefs, r.at).belt)] : unknown;
+    for (const c of [cell, total]) {
+      c.attempts++;
+      if (landed) c.landed++;
+    }
+  }
+  return { cells, unknown, total };
+}
+
+// ---------- Positional rounds ----------
+
+/** Bottom of a pin, or turtle: the "bad spots" people start from on purpose. */
+const BAD_SPOTS = new Set(['side-control', 'mount', 'back', 'north-south', 'knee-on-belly', 'turtle']);
+export const isBadSpot = (start: string, role?: Role) => (start === 'turtle' ? true : role === 'bottom' && BAD_SPOTS.has(start));
+
+export interface PositionalStats {
+  rolls: number;
+  /** Rounds that started from a position. */
+  positional: number;
+  /** …of them, from a bad spot. */
+  badSpots: number;
+  byStart: Count[];
+}
+
+export function positionalStats(events: LogEvent[]): PositionalStats {
+  const rs = rolls(events);
+  const pos = rs.filter((r) => r.detail?.start);
+  return {
+    rolls: rs.length,
+    positional: pos.length,
+    badSpots: pos.filter((r) => isBadSpot(r.detail!.start!, r.detail?.role)).length,
+    byStart: tally(
+      pos.map((r) => [`${r.detail!.start}${r.detail?.role ? `:${r.detail.role}` : ''}`]),
+      (k) => {
+        const [p, role] = k.split(':');
+        return `${positionLabel(p)}${role ? ` (${role})` : ''}`;
+      },
+    ),
+  };
+}

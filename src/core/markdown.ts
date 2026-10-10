@@ -3,8 +3,9 @@ import { dayDate, dayKey } from './days';
 import { createEvent, isSession, minutesOf } from './events';
 import { duration, dayTitle } from './format';
 import { kindById, type KindId } from './kinds';
+import { newProblem, problemsFor } from './notebook';
 import { rollsIn } from './stats';
-import { BELTS, type Belt, type Detail, type LogEvent, type SessionKind, type Size } from './types';
+import { BELTS, type Belt, type Detail, type LogEvent, type ProblemSource, type Role, type SessionKind, type Size } from './types';
 
 /**
  * Markdown in and out. Export writes each session as a small note; import reads the same format
@@ -27,7 +28,8 @@ const MIN = 60_000;
 
 function rollLine(r: LogEvent, now: number): string {
   const d = r.detail ?? {};
-  const tags = [d.belt, d.size, d.outcome, `${minutesOf(r, now)}m`].filter(Boolean);
+  const from = d.start ? `from ${positionLabel(d.start).toLowerCase()}${d.role ? ` ${d.role}` : ''}` : '';
+  const tags = [d.belt, d.size, d.outcome, from, `${minutesOf(r, now)}m`].filter(Boolean);
   const who = `${d.partner ?? 'Round'} (${tags.join(', ')})`;
   const bits: string[] = [];
   if (d.subsFor?.length) bits.push(`hit ${d.subsFor.map(subLabel).join(', ')}`);
@@ -50,15 +52,23 @@ export function sessionMarkdown(s: LogEvent, events: LogEvent[], now: number): s
   const out = [`## ${kind.label} · ${dayTitle(dayDate(dayKey(s.at)))}`, '', `- Date: ${stamp(s.at)}`, `- Length: ${duration(minutesOf(s, now) * MIN)}`];
   if (d.attire) out.push(`- Gi: ${d.attire === 'gi' ? 'gi' : 'no-gi'}`);
   if (d.techniques?.length) out.push(`- Techniques: ${d.techniques.map(techniqueLabel).join(', ')}`);
+  if (d.source) out.push(`- Source: ${d.source}${d.url ? ` (${d.url})` : ''}`);
+  if (d.enjoy) out.push(`- Enjoyed: ${d.enjoy}/5`);
+  if (d.plan) out.push(`- Followed my plan: ${d.plan}`);
   if (d.note) out.push(`- Note: ${d.note.replace(/\s+/g, ' ')}`);
-  const rs = rollsIn(s, events, now);
+  for (const p of problemsFor(s.id, events)) {
+    const pr = p.detail!.problem!;
+    out.push(`- Problem: ${pr.text}${pr.solvedAt ? ' (solved)' : ''}`);
+    if (pr.idea) out.push(`- Idea: ${pr.idea}`);
+  }
+  const rs = s.type === 'study' ? [] : rollsIn(s, events, now);
   if (rs.length) out.push('', '### Rolls', ...rs.map((r) => rollLine(r, now)));
   return out.join('\n');
 }
 
 /** Sessions between two days (inclusive), newest first, as Markdown. */
 export function toMarkdown(events: LogEvent[], fromDay: string, toDay: string, now: number, name = ''): string {
-  const list = events.filter((e) => !e.deleted && isSession(e) && dayKey(e.at) >= fromDay && dayKey(e.at) <= toDay).sort((a, b) => b.at - a.at);
+  const list = events.filter((e) => !e.deleted && (isSession(e) || e.type === 'study') && dayKey(e.at) >= fromDay && dayKey(e.at) <= toDay).sort((a, b) => b.at - a.at);
   const range = fromDay === toDay ? dayTitle(dayDate(toDay)) : `${dayTitle(dayDate(fromDay))} – ${dayTitle(dayDate(toDay))}`;
   const out = [`# ${name.trim() ? `${name.trim()}'s training` : 'Training log'} · ${range}`, ''];
   if (!list.length) out.push('_Nothing logged._', '');
@@ -73,22 +83,31 @@ export interface ParsedRoll {
   detail: Detail;
 }
 
+export interface ParsedProblem {
+  text: string;
+  idea?: string;
+  solved?: boolean;
+  source?: ProblemSource;
+}
+
 export interface ParsedSession {
-  type: SessionKind;
+  type: SessionKind | 'study';
+  problems: ParsedProblem[];
   /** Start time; null when the note didn't say (the caller picks one). */
   at: number | null;
   detail: Detail;
   rolls: ParsedRoll[];
 }
 
-const KIND_WORDS: [RegExp, SessionKind][] = [
+const KIND_WORDS: [RegExp, SessionKind | 'study'][] = [
   [/\bopen[\s-]?mat\b/i, 'open-mat'],
   [/\bdrill(ing|s)?\b/i, 'drilling'],
   [/\b(comp|competition|tournament)\b/i, 'comp'],
   [/\b(class|lesson|training|fundamentals|advanced)\b/i, 'class'],
+  [/\b(study|studied|instructional)\b/i, 'study'],
 ];
 
-function kindIn(text: string): SessionKind | null {
+function kindIn(text: string): SessionKind | 'study' | null {
   for (const [re, k] of KIND_WORDS) if (re.test(text)) return k;
   return null;
 }
@@ -151,6 +170,11 @@ export function parseRollLine(line: string): Detail {
     else if (/^(win|won|w)$/.test(t)) d.outcome = 'win';
     else if (/^(loss|lost|l)$/.test(t)) d.outcome = 'loss';
     else if (/^(draw|tie)$/.test(t)) d.outcome = 'draw';
+    else if (/^from\s+/.test(t)) {
+      const m = /^from\s+(.+?)(?:\s+(top|bottom))?$/.exec(t)!;
+      d.start = resolvePosition(m[1]);
+      if (m[2]) d.role = m[2] as Role;
+    }
     else if (parseDuration(t)) d.min = parseDuration(t)!;
   }
   text = body;
@@ -194,7 +218,7 @@ export function parseMarkdown(text: string): ParsedSession[] {
   const notes = new Map<ParsedSession, string[]>();
   const ensure = (): ParsedSession => {
     if (!cur) {
-      cur = { type: 'class', at: null, detail: {}, rolls: [] };
+      cur = { type: 'class', at: null, detail: {}, rolls: [], problems: [] };
       out.push(cur);
       notes.set(cur, []);
     }
@@ -215,7 +239,7 @@ export function parseMarkdown(text: string): ParsedSession[] {
       const k = kindIn(h);
       // A top-level export title ("Training log · …") with sessions under it isn't a session.
       if (k && !(/^#\s/.test(line) && /training log|'s training/i.test(h))) {
-        cur = { type: k, at: parseDate(h), detail: {}, rolls: [] };
+        cur = { type: k, at: parseDate(h), detail: {}, rolls: [], problems: [] };
         out.push(cur);
         notes.set(cur, []);
         inRolls = false;
@@ -228,9 +252,9 @@ export function parseMarkdown(text: string): ParsedSession[] {
       s.rolls.push({ detail: parseRollLine(line) });
       continue;
     }
-    const kv = /^(?:[-*+]\s+)?\**([A-Za-z][A-Za-z -]{0,20}?)\**\s*:\s*\**\s*(.*)$/.exec(line);
+    const kv = /^(?:[-*+]\s+)?\**([A-Za-z][A-Za-z /-]{0,30}?)\**\s*:\s*\**\s*(.*)$/.exec(line);
     if (kv) {
-      const key = kv[1].trim().toLowerCase();
+      const key = kv[1].trim().toLowerCase().replace(/\s*\/\s*/g, ' ');
       const v = kv[2].trim();
       if (/^(type|kind|session)$/.test(key)) {
         const k = kindIn(v);
@@ -256,6 +280,34 @@ export function parseMarkdown(text: string): ParsedSession[] {
         s.detail.techniques = [...(s.detail.techniques ?? []), ...splitList(v).map(resolveTechnique)];
         continue;
       }
+      if (/^(enjoy|enjoyed|enjoyment|fun)$/.test(key)) {
+        const m = /^(\d)/.exec(v);
+        if (m && Number(m[1]) >= 1 && Number(m[1]) <= 5) s.detail.enjoy = Number(m[1]);
+        continue;
+      }
+      if (/^(plan|followed (my )?plan|followed the plan|on plan)$/.test(key)) {
+        const p = v.toLowerCase();
+        if (/^(yes|y|mostly)/.test(p)) s.detail.plan = 'yes';
+        else if (/^(partly|partially|some|kind of|half)/.test(p)) s.detail.plan = 'partly';
+        else if (/^(no|n|not)/.test(p)) s.detail.plan = 'no';
+        continue;
+      }
+      if (/^(problem|problem i hit|problem i hit today|problems?)$/.test(key)) {
+        if (v) s.problems.push({ text: v.replace(/\s*\(solved\)\s*$/i, ''), solved: /\(solved\)\s*$/i.test(v), source: 'internal' });
+        continue;
+      }
+      if (/^(idea|idea to try|idea to try solution|solution|fix)$/.test(key)) {
+        const last = s.problems[s.problems.length - 1];
+        if (last && !last.idea) last.idea = v;
+        else if (v) notes.get(s)!.push(`Idea: ${v}`);
+        continue;
+      }
+      if (/^(source|from|instructional|video)$/.test(key) && s.type === 'study') {
+        const url = /\((https?:[^)]+)\)\s*$/.exec(v) ?? /^(https?:\S+)$/.exec(v);
+        s.detail.source = v.replace(/\s*\((https?:[^)]+)\)\s*$/, '').slice(0, 200);
+        if (url) s.detail.url = url[1];
+        continue;
+      }
       if (/^(notes?)$/.test(key)) {
         notes.get(s)!.push(v);
         continue;
@@ -273,7 +325,7 @@ export function parseMarkdown(text: string): ParsedSession[] {
     if (n) s.detail.note = n.slice(0, 2000);
     // A date heading without a "Date:" line ("## Class 2026-10-08 18:00") was read above.
   }
-  return out.filter((s) => s.at !== null || Object.keys(s.detail).length || s.rolls.length);
+  return out.filter((s) => s.at !== null || Object.keys(s.detail).length || s.rolls.length || s.problems.length);
 }
 
 /**
@@ -283,9 +335,11 @@ export function parseMarkdown(text: string): ParsedSession[] {
 export function notesToEvents(parsed: ParsedSession[], now: number, defaultMin = 60): LogEvent[] {
   const out: LogEvent[] = [];
   for (const p of parsed) {
-    const min = p.detail.min ?? defaultMin;
+    const min = p.detail.min ?? (p.type === 'study' ? 10 : defaultMin);
     const at = p.at ?? now - min * MIN;
-    out.push(createEvent(p.type, at, { ...p.detail, min }, now));
+    const session = createEvent(p.type, at, { ...p.detail, min }, now);
+    out.push(session);
+    for (const pr of p.problems) out.push(newProblem(pr.text, now, { idea: pr.idea, source: pr.source, sessionId: session.id, solvedAt: pr.solved ? now : undefined }));
     let t = at + 60_000;
     for (const r of p.rolls) {
       const rmin = r.detail.min ?? kindById('roll').defaultMin;

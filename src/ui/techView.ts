@@ -1,12 +1,19 @@
-import { positionLabel, TECHNIQUES } from '../core/catalog';
+import { allTechniques, isCustom, POSITIONS, positionLabel, TECH_KINDS, techniqueById, techniqueLabel, TECHNIQUES } from '../core/catalog';
 import { dayKey, daysBetween } from '../core/days';
-import { app } from '../core/log';
-import { positionGraph, rollStats, techniqueUses } from '../core/stats';
+import { defineTechnique, LibraryError } from '../core/library';
+import { addEvent, app, deleteEvent, settings } from '../core/log';
+import { LEVELS, positionGraph, rollStats, SIZES_ORDER, skillLadder, techniqueUses, type LadderCell } from '../core/stats';
+import type { CustomTechnique } from '../core/types';
 import { graphSvg } from '../viz/graph';
 import { esc, openDialog, sheetHead } from './dom';
+import { toast } from './toast';
 
 const dialog = () => document.getElementById('tech') as HTMLDialogElement;
 let filter = '';
+/** The technique open in detail, or a new one being added ('' id). */
+let detail: string | null = null;
+let form: CustomTechnique | null = null;
+let error = '';
 
 function since(at: number, now: number): string {
   const d = daysBetween(dayKey(at), dayKey(now));
@@ -21,32 +28,89 @@ function rows(now: number): string {
   if (!list.length) return '<p class="empty">No technique matches.</p>';
   return `<table class="data"><thead><tr><th>Technique</th><th>From → to</th><th class="num">Drilled</th><th class="num" title="Rounds you landed it, of rounds you went for it">Landed in rounds</th><th class="num">Last</th></tr></thead><tbody>${list
     .map(
-      (u) => `<tr><td>${esc(u.label)}</td><td class="entry-meta">${u.from && u.to ? `${esc(positionLabel(u.from))} → ${esc(positionLabel(u.to))}` : 'your own'}</td><td class="num">${u.sessions || '–'}</td><td class="num">${u.attempts ? `${u.landed} of ${u.attempts}` : '–'}</td><td class="num">${since(u.lastAt, now)}</td></tr>`,
+      (u) => `<tr><td><button type="button" class="link-btn" data-open="${esc(u.id)}">${esc(u.label)}</button></td><td class="entry-meta">${u.from && u.to ? `${esc(positionLabel(u.from))} → ${esc(positionLabel(u.to))}` : '<span class="tag">your own: add positions</span>'}</td><td class="num">${u.sessions || '–'}</td><td class="num">${u.attempts ? `${u.landed} of ${u.attempts}` : '–'}</td><td class="num">${since(u.lastAt, now)}</td></tr>`,
     )
     .join('')}</tbody></table>`;
+}
+
+const cell = (c: LadderCell) => (c.attempts ? `<b>${c.landed}</b>/${c.attempts}` : '<span class="entry-meta">–</span>');
+
+/** Lighter → same → heavier, lower → similar → higher belt: where a skill holds up so far. */
+function ladder(id: string): string {
+  const l = skillLadder(app.get().events, id, settings.get());
+  if (!l.total.attempts) return '<p class="empty">No rounds with it yet. Note it as landed or tried when you log a round.</p>';
+  return `<table class="data ladder"><thead><tr><th>Partner</th>${LEVELS.map((lv) => `<th class="num">${lv === 'lower' ? 'Lower belt' : lv === 'similar' ? 'Same belt' : 'Higher belt'}</th>`).join('')}</tr></thead><tbody>${SIZES_ORDER.map(
+    (s) => `<tr><th scope="row">${s === 'smaller' ? 'Lighter' : s === 'similar' ? 'Same size' : 'Heavier'}</th>${LEVELS.map((lv) => `<td class="num">${cell(l.cells[s][lv])}</td>`).join('')}</tr>`,
+  ).join('')}</tbody></table>
+  <p class="basis">Landed / rounds you went for it: ${l.total.landed} of ${l.total.attempts}${l.unknown.attempts ? `, ${l.unknown.attempts} without the partner's belt and size` : ''}. Belts are against yours at the time.</p>`;
+}
+
+function editor(): string {
+  const f = form!;
+  const opts = (sel: string) =>
+    POSITIONS.map((p) => `<option value="${p.id}" ${p.id === sel ? 'selected' : ''}>${esc(p.label)}</option>`).join('');
+  return `<form data-tech-form novalidate class="block">
+    <label class="field"><span class="field-label">Name</span><input type="text" data-name value="${esc(f.label)}" maxlength="80" autocomplete="off" placeholder="e.g. Kiss of the dragon" /></label>
+    <fieldset class="field"><legend>What it is</legend><div class="picks">${TECH_KINDS.map((k) => `<button type="button" class="pick" data-kind="${k.id}" aria-pressed="${k.id === f.kind}">${k.label}</button>`).join('')}</div></fieldset>
+    <div class="row stack-sm">
+      <label class="field"><span class="field-label">Starts from</span><select data-from><option value="">Pick a position</option>${opts(f.from)}</select></label>
+      <label class="field"><span class="field-label">Ends in</span><select data-to><option value="">Pick a position</option>${opts(f.to)}</select></label>
+    </div>
+    ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ''}
+    <div class="actions">${f.id && isCustom(f.id) ? '<button type="button" class="btn danger" data-forget>Remove from library</button>' : ''}<span class="spacer"></span><button type="button" class="btn" data-cancel>Cancel</button><button type="submit" class="btn primary">Save</button></div>
+  </form>`;
+}
+
+function detailView(id: string, now: number): string {
+  const t = techniqueById(id);
+  const u = techniqueUses(app.get().events).find((x) => x.id === id);
+  const catalog = TECHNIQUES.some((x) => x.id === id);
+  return `<p><button type="button" class="link-btn" data-back>‹ All techniques</button></p>
+    <h3 style="margin:0">${esc(techniqueLabel(id))}</h3>
+    <p class="basis">${t ? `${esc(TECH_KINDS.find((k) => k.id === t.kind)?.label ?? '')} · ${esc(positionLabel(t.from))} → ${esc(positionLabel(t.to))}${catalog ? '' : ' · your own'}` : 'Your own, without positions yet'}${u ? ` · drilled in ${u.sessions} session${u.sessions === 1 ? '' : 's'} · last ${since(u.lastAt, now)}` : ''}</p>
+    ${!catalog && !form ? `<p><button type="button" class="chip primary" data-define>${t ? 'Edit' : 'Add type and positions'}</button></p>` : ''}
+    ${form ? editor() : ''}
+    <section class="block"><h3>Skill ladder</h3><p class="basis">Test new skills against people near your level in them, then climb.</p>${ladder(id)}</section>`;
 }
 
 function render() {
   const now = Date.now();
   const { events } = app.get();
-  const g = positionGraph(events);
-  const stuck = new Set(rollStats(events).stuck.map((s) => s.id));
-  const unused = TECHNIQUES.filter((t) => !techniqueUses(events).some((u) => u.id === t.id)).length;
-  dialog().innerHTML = `${sheetHead('tech-title', 'Technique library')}<div class="sheet-body">
-    <section><h3 style="margin:0 0 4px">Last drilled or tried</h3>
-      <p class="basis" style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Newest first. ${unused} catalog techniques you haven't tagged yet; anything you type is kept too.</p>
-      <input class="search" type="search" placeholder="Filter by technique or position" value="${esc(filter)}" data-filter aria-label="Filter techniques" />
-      <div data-rows>${rows(now)}</div>
-    </section>
-    <section class="block"><h3>Position graph</h3>
-      <p class="basis">Built from your own logs: each line is a technique you've drilled or landed in a round, from one position to another; thicker means more. A dashed outline is somewhere you noted getting stuck.</p>
-      <div class="viz">${graphSvg(g.edges, g.nodes, stuck)}</div>
-      <details class="text-alt"><summary>As a list</summary>${g.edges.length ? `<ul>${g.edges.map((e) => `<li>${esc(positionLabel(e.from))} → ${esc(positionLabel(e.to))}: ${esc(e.techniques.join(', '))} (${e.n})</li>`).join('')}</ul>` : '<p class="empty">No catalog techniques tagged yet.</p>'}</details>
-    </section>
-  </div>`;
+  const body =
+    detail !== null && detail !== ''
+      ? detailView(detail, now)
+      : detail === ''
+        ? `<p><button type="button" class="link-btn" data-back>‹ All techniques</button></p><h3 style="margin:0">Add a technique</h3><p class="basis">Your own techniques join the suggestions, the position graph and the skill ladder. Entries already logged with the same name link up.</p>${editor()}`
+        : (() => {
+            const g = positionGraph(events);
+            const stuck = new Set(rollStats(events).stuck.map((s) => s.id));
+            const unused = allTechniques().filter((t) => !techniqueUses(events).some((u) => u.id === t.id)).length;
+            return `<section><div class="section-head" style="margin-top:0"><h3 style="margin:0">Last drilled or tried</h3><button type="button" class="chip" data-add>+ Add a technique</button></div>
+              <p class="basis" style="color:var(--muted);font-size:.82rem;margin:0 0 10px">Newest first. Tap one for its skill ladder. ${unused} techniques in the library you haven't used yet; anything you type is kept too.</p>
+              <input class="search" type="search" placeholder="Filter by technique or position" value="${esc(filter)}" data-filter aria-label="Filter techniques" />
+              <div data-rows>${rows(now)}</div>
+            </section>
+            <section class="block"><h3>Position graph</h3>
+              <p class="basis">Built from your own logs: each line is a technique you've drilled or landed in a round, from one position to another; thicker means more. A dashed outline is somewhere you noted getting stuck.</p>
+              <div class="viz">${graphSvg(g.edges, g.nodes, stuck)}</div>
+              <details class="text-alt"><summary>As a list</summary>${g.edges.length ? `<ul>${g.edges.map((e) => `<li>${esc(positionLabel(e.from))} → ${esc(positionLabel(e.to))}: ${esc(e.techniques.join(', '))} (${e.n})</li>`).join('')}</ul>` : '<p class="empty">No techniques with positions yet.</p>'}</details>
+            </section>`;
+          })();
+  dialog().innerHTML = `${sheetHead('tech-title', 'Technique library')}<div class="sheet-body">${body}</div>`;
 }
 
-export function openTech() {
+function readForm() {
+  const d = dialog();
+  if (!form) return;
+  form.label = d.querySelector<HTMLInputElement>('[data-name]')?.value ?? form.label;
+  form.from = d.querySelector<HTMLSelectElement>('[data-from]')?.value ?? form.from;
+  form.to = d.querySelector<HTMLSelectElement>('[data-to]')?.value ?? form.to;
+}
+
+export function openTech(id?: string) {
+  detail = id ?? null;
+  form = null;
+  error = '';
   render();
   const d = dialog();
   if (!d.dataset.techWired) {
@@ -56,6 +120,51 @@ export function openTech() {
       if (el.dataset.filter === undefined) return;
       filter = el.value;
       d.querySelector('[data-rows]')!.innerHTML = rows(Date.now());
+    });
+    d.addEventListener('submit', (e) => {
+      e.preventDefault();
+      readForm();
+      try {
+        const ev = addEvent(defineTechnique(form!, Date.now()));
+        const t = ev.detail!.technique!;
+        detail = t.id;
+        form = null;
+        error = '';
+        render();
+        toast(`${t.label} is in your library`, { actions: [{ label: 'Undo', primary: true, run: () => (deleteEvent(ev.id), render()) }] });
+      } catch (err) {
+        error = err instanceof LibraryError ? err.message : String(err);
+        render();
+      }
+    });
+    d.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLElement>('button');
+      if (!b) return;
+      const ds = b.dataset;
+      if (ds.open) {
+        detail = ds.open;
+        form = null;
+      } else if (ds.back !== undefined) {
+        detail = null;
+        form = null;
+      } else if (ds.add !== undefined) {
+        detail = '';
+        form = { id: '', label: filter.trim(), kind: 'sweep', from: '', to: '' };
+      } else if (ds.define !== undefined) {
+        const t = techniqueById(detail!);
+        form = { id: detail!, label: t?.label ?? detail!, kind: t?.kind ?? 'sweep', from: t?.from ?? '', to: t?.to ?? '' };
+      } else if (ds.kind) {
+        readForm();
+        form!.kind = ds.kind as CustomTechnique['kind'];
+      } else if (ds.cancel !== undefined) form = null;
+      else if (ds.forget !== undefined) {
+        const evs = app.get().events.filter((x) => x.type === 'technique' && !x.deleted && x.detail?.technique?.id === form!.id);
+        evs.forEach((x) => deleteEvent(x.id));
+        form = null;
+        toast('Removed from your library. Entries that used it keep the name.');
+      } else return;
+      error = '';
+      render();
     });
   }
   openDialog(d);

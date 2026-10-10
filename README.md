@@ -15,14 +15,20 @@ matlog is a sibling of [tinylog](https://github.com/parmsam/tinylog) and uses th
 ## Features
 
 **Logging**
-- **One tap.** Class, Open mat, Drilling, Comp and Round. Tap to start, tap to stop. Timers are timestamps, so they keep going through reloads, a locked phone or a closed tab. Starting open mat while class runs switches it instead of starting a second session.
-- **Logging late is normal.** Every log shows **Undo**, **−5m / −15m / −30m** and **Details**. Hold a card to log one you already did, with its length.
-- **Round log.** Stopping a round asks who you rolled with (partner, belt, size), subs you hit, what you tapped to, **moves you landed and moves you went for** (sweeps, passes, takedowns, back takes), and where you got stuck. Every field is optional and one tap away. Rounds belong to the session they happened in, so an open mat keeps all its rounds together.
-- **Working on.** A card on the home screen for the one thing you're trying next class. When it names a technique, position or submission, matlog counts what happens from then on ("since Oct 3 · 4 sessions · landed 2 of 5 in rounds"). Quick fills come from your own log, and past focuses are kept so you can reuse them. You write it; matlog never suggests one.
+- **One tap.** Class, Open mat, Drilling, Comp and Round (plus Study, off by default). Tap to start, tap to stop. Timers are timestamps, so they keep going through reloads, a locked phone or a closed tab. Starting open mat while class runs switches it instead of starting a second session.
+- **Logging late is normal.** Every log shows **Undo**, **−5m / −15m / −30m** and **Details**. Hold a card to log one you already did, with its length (1 hour for a class by default). Classes start on the hour by default, and the toast always offers the exact time.
+- **Open mat flow.** Rounds belong to the session they happen in (class, open mat, drilling, or a comp, where they're matches). A round started on its own offers to start open mat; saving one offers **Next round**; a session's sheet lists its rounds with **+ Add a round**. The **round clock** (<kbd>K</kbd>) is a full-screen gym timer with round and rest lengths that buzzes at time and keeps the screen awake.
+- **Round log.** Stopping a round asks who you rolled with (partner, belt, size), where it started (positional rounds, top or bottom), subs you hit, what you tapped to, **moves you landed and moves you went for** (sweeps, passes, takedowns, back takes), and where you got stuck. Every field is optional and one tap away.
+
+**Train with intention**
+- **Focus blocks.** Say what you're working on, a few connected skills at a time: a main skill, a complementary one, a habit, an experiment, a side project. Work each in a 1- or 2-week block, then rest it, go again, or call it done. Write where you go if it works and if it fails, and an optional reps target ("1 of 2 reps today"). When a focus names a technique, position or submission, matlog counts what happens in each block, so after a break you can see what stuck. You pick them; matlog never will.
+- **Problems.** Find a problem, write an idea to try, mark it solved. Note whether someone told you, you noticed it, or you see it coming, and whether you tinkered before looking it up.
+- **Reflect later.** A while after a session (two hours by default), a prompt opens a five-minute notebook: the current block, a problem you hit, an idea to try, and a check-in on whether you enjoyed it and followed your plan. Starting a session shows today's focus in the toast, like glancing at a notebook before rounds.
+- **Skill ladder.** For any technique: landed / tried against lighter, same-size and heavier partners, and lower, same and higher belts than yours at the time.
 - **Paste a class note.** Paste Markdown or plain text from your notes app and it becomes a session with its rounds. You see a preview before anything is saved.
 
 **Technique library**
-- Tag techniques per session from a built-in list of about 60 (takedowns, sweeps, passes, escapes, submissions), or type your own.
+- Tag techniques per session from a built-in list of about 60 (takedowns, sweeps, passes, escapes, submissions), or type your own. **Add your own techniques** with a type and where they start and end, and they join the suggestions, the position graph and the skill ladder; anything already logged under that name links up.
 - **Last drilled or tried**: every technique, how many sessions you drilled it, and **landed X of Y** in rounds.
 - **Position graph**: standing → guard → passing → mount/back → submission, drawn only from techniques you've drilled or landed. Thicker lines mean more sessions, and a dashed outline marks positions you've noted getting stuck in.
 
@@ -37,6 +43,7 @@ matlog is a sibling of [tinylog](https://github.com/parmsam/tinylog) and uses th
 - **Moves in rounds**: each sweep, pass or takedown you went for, and how often it landed.
 - **Where you got stuck**, ranked.
 - **Belt and stripe timeline**, with the mat hours between each promotion.
+- **How sessions felt**: enjoyment by month and how often you followed your plan, from your own check-ins. **Focus blocks** over the last six months, and **positional rounds** by starting position.
 - **Patterns, never advice.** "You noted getting stuck in half guard most: 14 rolls." Each pattern says what it's based on and stays hidden until there's enough data. matlog won't tell you what to drill.
 
 <p align="center">
@@ -44,7 +51,7 @@ matlog is a sibling of [tinylog](https://github.com/parmsam/tinylog) and uses th
 </p>
 
 **Delight**
-- **A training buddy.** Pick a Grappler, Bear, Sloth, Octopus, Frog or Cat, or a different one each day. They wear your belt and stripes, tie their belt when a session starts, tap out when you log a tap and cheer a finish.
+- **A training buddy.** Pick a Grappler, Bear, Sloth, Octopus, Frog or Cat, or a different one each day. They wear your belt and stripes, tie their belt when a session starts, tap out when you log a tap and cheer a finish. Tap yours for a line.
 <p align="center"><img src="docs/buddies.png" alt="The six training buddies in white gis with blue belts: Grappler, Bear, Sloth, Octopus, Frog and Cat" width="72%" /></p>
 
 - **A splash** of your belt tying itself as the app opens. It's on by default, a tap skips it, and you can turn it off in Settings.
@@ -95,7 +102,8 @@ Press <kbd>?</kbd> in the app to see them all.
 | <kbd>C</kbd> <kbd>O</kbd> <kbd>D</kbd> <kbd>P</kbd> <kbd>R</kbd> | Start / stop class, open mat, drilling, comp, round (with <kbd>Shift</kbd>: log a finished one) |
 | <kbd>U</kbd> | Undo |
 | <kbd>G</kbd> <kbd>T</kbd> <kbd>V</kbd> | Progress, technique library, paste a class note |
-| <kbd>F</kbd> | Working on |
+| <kbd>F</kbd> <kbd>B</kbd> <kbd>K</kbd> | Working on (focus blocks), problems, round clock |
+| <kbd>S</kbd> | Start / stop study |
 | <kbd>M</kbd> | Copy the last 7 days as Markdown |
 | <kbd>,</kbd> | Settings |
 
@@ -110,6 +118,8 @@ Any link with `?do=` logs something when opened, with the usual Undo. **Settings
 | `?do=log&type=class&min=90&gi=nogi&tech=knee cut,arm triangle` | A finished no-gi class with techniques |
 | `?do=log&type=roll&partner=Jo&belt=blue&sub=rnc&tapped=triangle&stuck=half guard` | A round |
 | `?do=log&type=roll&landed=knee cut&tried=berimbolo` | A round where you landed a knee cut and went for a berimbolo |
+| `?do=log&type=roll&from=side control&role=bottom` | A positional round from bottom side control |
+| `?do=log&type=study&min=10&source=Half guard series` | Ten minutes of study (not mat time) |
 | `&ago=30` | It ended (or started) 30 minutes ago |
 
 - **iPhone:** Shortcuts → New Shortcut → **Open URLs**, paste a link, name it "Log open mat". Then say "Hey Siri, log open mat". Links open in Safari, which keeps its own data, separate from the Home Screen app.
@@ -131,7 +141,7 @@ Good rounds, cardio was rough.
 - Jo (white): hit rnc; landed knee cut; tried berimbolo
 ```
 
-A heading that names a session (class, open mat, drilling, comp) starts one, and a "Rolls" heading lists rounds. Common names are recognised ("knee slice" is a knee cut, "rear naked" is an RNC); anything else is kept as you typed it. Export writes the same format, so a copied week pastes back in cleanly.
+A heading that names a session (class, open mat, drilling, comp, study) starts one, and a "Rolls" heading lists rounds. The notebook keys work too: `Problem I hit today:`, `Idea to try / solution:`, `Enjoyed: 4`, `Followed my plan: partly`. Common names are recognised ("knee slice" is a knee cut, "rear naked" is an RNC); anything else is kept as you typed it. Export writes the same format, so a copied week pastes back in cleanly.
 
 ## Privacy
 
@@ -156,6 +166,7 @@ SCREENSHOTS=1 npx playwright test screenshots --project=chromium   # refresh doc
 | Storage | IndexedDB with a localStorage mirror; settings in localStorage |
 | Unit tests | Vitest (jsdom), run in `America/New_York` to catch DST bugs |
 | E2E tests | Playwright on Chromium, WebKit, an Android phone, iPhone layout, and the production build (offline) |
+| Icons | `scripts/icons.mjs` renders one SVG mark to favicon.ico/PNG/SVG, the iOS touch icon, and Android 192/512 + maskable PNGs |
 | CI / deploy | Every push runs the tests; `main` deploys to GitHub Pages only if they pass |
 
 The plan, competitor notes and decisions log are in [`PLAN.md`](PLAN.md), and conventions for contributors (human or AI) are in [`AGENTS.md`](AGENTS.md).

@@ -8,7 +8,8 @@ import type { Detail, LogEvent } from './types';
  * `window.matlog` all call these, so they behave the same. No UI here; callers decide how to show it.
  */
 export type OpResult =
-  | { kind: 'logged' | 'started'; what: KindId; event: LogEvent }
+  /** `snappedFrom`: the start before it was moved to the hour (classes), so the UI can offer the exact time. */
+  | { kind: 'logged' | 'started'; what: KindId; event: LogEvent; snappedFrom?: number }
   | { kind: 'stopped'; what: KindId; event: LogEvent; prev: LogEvent; alsoStopped?: { event: LogEvent; prev: LogEvent } }
   /** A running session changed kind (class ran into open mat) instead of starting a second one. */
   | { kind: 'switched'; what: KindId; event: LogEvent; prev: LogEvent }
@@ -21,28 +22,51 @@ export interface OpOptions {
 }
 
 const MIN = 60_000;
+/** A tap this long after the hour still counts as starting on the hour. */
+export const ON_HOUR_GRACE = 10 * MIN;
+
+const floorHour = (ts: number) => {
+  const d = new Date(ts);
+  d.setMinutes(0, 0, 0);
+  return d.getTime();
+};
+
+/**
+ * Classes start on the hour. A class you start live within 10 minutes after the hour starts on the
+ * hour; one logged after the fact starts on the hour at or before when it would otherwise have
+ * started (finished at 8:10 after an hour → 7:00). `live` is false for logged-after-the-fact.
+ */
+export function classStart(start: number, live: boolean): number {
+  const h = floorHour(start);
+  if (!live) return h;
+  return start - h <= ON_HOUR_GRACE ? h : start;
+}
 
 /** Log a finished entry: it ended at `at` and lasted `detail.min` (or the default length). */
 export function logKind(what: KindId, { at = Date.now(), detail }: OpOptions = {}): OpResult {
   const def = kindById(what);
-  const min = detail?.min ?? (what === 'roll' ? def.defaultMin : settings.get().defaultMin || def.defaultMin);
-  const event = addEvent(createEvent(what, at - min * MIN, { ...detail, min }, Date.now()));
-  return { kind: 'logged', what, event };
+  const min = detail?.min ?? (what === 'roll' || what === 'study' ? def.defaultMin : settings.get().defaultMin || def.defaultMin);
+  const exact = at - min * MIN;
+  const start = what === 'class' && settings.get().classOnHour ? classStart(exact, false) : exact;
+  const event = addEvent(createEvent(what, start, { ...detail, min }, Date.now()));
+  return { kind: 'logged', what, event, ...(start !== exact ? { snappedFrom: exact } : {}) };
 }
 
 export function startKind(what: KindId, { at = Date.now(), detail }: OpOptions = {}): OpResult {
   const { events } = app.get();
   const label = kindById(what).label;
   if (ongoingFor(events, what)) return { kind: 'noop', what, reason: `${label} is already going` };
-  if (what !== 'roll') {
+  if (what !== 'roll' && what !== 'study') {
     const other = ongoingSession(events);
     if (other) {
       const event = updateEvent(other.id, { type: what, detail: { ...other.detail, ...detail } })!;
       return { kind: 'switched', what, event, prev: other };
     }
   }
-  const event = addEvent(createEvent(what, Math.min(at, Date.now()), detail, Date.now()));
-  return { kind: 'started', what, event };
+  const exact = Math.min(at, Date.now());
+  const start = what === 'class' && settings.get().classOnHour ? classStart(exact, true) : exact;
+  const event = addEvent(createEvent(what, start, detail, Date.now()));
+  return { kind: 'started', what, event, ...(start !== exact ? { snappedFrom: exact } : {}) };
 }
 
 export function stopKind(what: KindId, { at = Date.now(), detail }: OpOptions = {}): OpResult {
@@ -51,7 +75,7 @@ export function stopKind(what: KindId, { at = Date.now(), detail }: OpOptions = 
   if (!on) return { kind: 'noop', what, reason: `No ${kindById(what).label.toLowerCase()} is going` };
   // Ending a session ends the round inside it too.
   let alsoStopped: { event: LogEvent; prev: LogEvent } | undefined;
-  const roll = what !== 'roll' ? ongoingRoll(events) : undefined;
+  const roll = what !== 'roll' && what !== 'study' ? ongoingRoll(events) : undefined;
   if (roll) alsoStopped = { prev: roll, event: updateEvent(roll.id, { endAt: Math.max(at, roll.at) })! };
   const patch = detail ? { endAt: Math.max(at, on.at), detail: { ...on.detail, ...detail } } : { endAt: Math.max(at, on.at) };
   const event = updateEvent(on.id, patch)!;

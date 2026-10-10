@@ -14,6 +14,20 @@ rules. The domain is new, and the field is mostly subscription apps and generic 
 4. **Nothing is ever lost.** No streaks to break. Patches are earned for cumulative mat hours and stay earned.
 5. **Private by design.** No backend, no analytics, no accounts. Partner names never leave the device unless you export.
 
+## Train with intention (from our study guides)
+Two study guides on skill development (an Atomic Dojo video on skill development, and a "jiu-jitsu operating system" video) shaped v0.3. They live in `ref/`, which is gitignored. What we took, as features that support *your* process (the app never picks your focus or judges a round):
+- **Always have something you're working on**, a few connected skills deep rather than everything a little ("build across, not up"): **focus blocks** with roles (main skill, complementary, habit, experiment, side project).
+- **Work a skill in ~2-week blocks, rest it, come back** (spaced practice), or "one position, one week, one outcome": blocks of 1 or 2 weeks with Rest it / Another block / Done, and block-by-block numbers to see what stuck after a break. A Progress chart shows the rhythm.
+- **If it works → I go here; if it fails → I go here**: written on each focus.
+- **Define success as 1–2 reps against live resistance**: an optional reps target per session on a focus ("1 of 2 reps today").
+- **Find problems, solve them** (external, internal, predictive sources); **tinker before looking it up**: the Problems list with ideas, a "tinkered first" note and solved dates.
+- **Take basic notes later, not straight after training; glance at them before rounds**: the reflection prompt (a while after a session, a setting) with the notebook template, and today's focus in the toast when a session starts.
+- **Test new skills against people near your level; lighter → same → heavier**: the skill ladder per technique (partner size × belt relative to yours then).
+- **Start rounds positionally; start from bad spots**: rounds record where they started and your side.
+- **Process over outcome; am I enjoying this?**: a check-in on enjoyment and following the plan, summarised in Progress without scores.
+- **The 5–10 minute study loop**: a Study card (hidden by default), logged but never counted as mat time.
+- Left for later: the competition blueprint (comp-day checklist, game plan "wrestle or pull?", circles of control), and the four-phase order (escapes → offense from escapes → top → subs) as a focus template.
+
 ## What the field does, and what we take from it
 Checked 2026-10-09 (see the README for the table).
 - **BJJ Notes** (free + Pro $7.90/mo, $59.90/yr or $149 lifetime; iOS/Android, account, cloud sync): session journal, technique focus goals, sub/tap analytics, weekly recaps, AI insights. *Take:* a "Working on" focus line and a weekly recap. *Skip:* AI insights, accounts.
@@ -99,12 +113,28 @@ Checked 2026-10-09 (see the README for the table).
 - [x] Keyboard shortcuts.
 - [x] Comparison table in the README.
 
+### Train with intention (v0.3)
+- [x] Focus blocks: several at once, roles, 1- or 2-week blocks, rest / another block / done, if works → / if fails →, reps target, block-by-block numbers, v0.2 "Working on" migrated into the log.
+- [x] Problems with source, idea to try, tinkered first, solved; open count on the home card.
+- [x] Reflection prompt (Settings: right after, 1, 2 or 4 hours, or off) with the notebook template and a check-in (enjoyed it, followed my plan).
+- [x] Skill ladder per technique; positional rounds (started from, top/bottom).
+- [x] Progress: how sessions felt, focus blocks chart, positional rounds.
+- [x] Study card (hidden by default), not mat time.
+- [x] Your own techniques (type and from → to positions), in the log; they join suggestions, the graph and the ladder.
+- [x] Classes start on the hour (default, a setting); the toast offers the exact time.
+- [x] Open mat flow: Start open mat when a round starts alone, Next round after saving one, a session's rounds listed in its sheet with + Add a round.
+- [x] Round clock (K): full screen, round and rest lengths, buzz at time, keeps the screen awake.
+- [x] From tinylog: one-time tips, Settings → Buttons, install guide with an Install button, tap the buddy, backups carry your name and fall back to .txt on Android.
+- [x] Icons: favicon.ico + PNG + SVG for tabs, a 180px apple-touch-icon for iOS, 192/512 and maskable PNGs for Android installs (`scripts/icons.mjs`).
+
 ### Later
+- [ ] Comp-day checklist and game plan (from the operating-system guide).
 - [ ] Injury log (BJJ Notes has one): descriptive only, never medical advice.
 - [ ] Shareable recap image.
 - [ ] Per-technique notes page.
 - [ ] Screenshots in `docs/`.
 
 ## Decisions log
+- 2026-10-09: v0.3.0, "train with intention". Focuses, problems and your own techniques are events (`focus`, `problem`, `technique`), so they back up, merge and undo like sessions; nothing new lives only in settings. A block's planned end is `from + blockDays`; a block that runs over ends there when rested. Reflection asks once per session (reflected or "Not now"), only for sessions that ended between `reflectAfter` and 36 hours ago, and the banner shows one thing at a time: backup, then reflection, then tips. The ladder compares the partner's belt with yours at the time of the round. Classes snap to the hour by default (logged after the fact: the hour at or before; live: within 10 minutes after); the toast offers the exact time. Study is its own kind, hidden by default, never mat time. Toasts created just before a sheet closes are moved out of it (they used to vanish with the sheet). Icons are PNGs rendered from one SVG mark by `scripts/icons.mjs`.
 - 2026-10-09: v0.2.0. Moves landed/tried per round (`detail.landed`, `detail.tried`): an attempt is a round where you went for it, landed or not, and misses don't draw edges on the position graph. Backup reminders ported from tinylog with matlog thresholds (30 entries; 7 days by default). "Working on" got its own sheet; it matches a technique, position or sub inside the sentence (subs win over the same-named technique, since they count taps too) and counts events that end after it was set. Redrew the buddy as one shared rig with six characters. Splash on by default, skipped for `?do=` links.
 - 2026-10-09: v0.1.0. Started from tinylog's template. All five cards are timed; a finished entry is an event with `detail.min` and no `endAt`. Rounds belong to sessions by time. Patches instead of streaks. No anime.js or three.js: the companion is CSS-animated SVG, to keep the bundle small.

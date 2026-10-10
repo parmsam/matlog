@@ -8,8 +8,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>matlog</title>
+    <meta name="apple-mobile-web-app-title" content="matlog" />
+    <meta name="application-name" content="matlog" />
+    <!-- Tabs (Safari, iOS tab view, Chrome): .ico and PNG everywhere, SVG where supported. iOS Home Screen needs a PNG. -->
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -21,6 +26,9 @@
         <nav class="topbar-actions" aria-label="Views">
           <button id="shortcuts-open" class="icon-btn kbd-only" type="button" aria-label="Keyboard shortcuts (?)" title="Keyboard shortcuts (?)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M7.5 14h9"/></svg>
+          </button>
+          <button id="clock-open" class="icon-btn" type="button" aria-label="Round clock (K)" title="Round clock (K)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 2M10 3h4M12 3v3"/></svg>
           </button>
           <button id="paste-open" class="icon-btn" type="button" aria-label="Paste a class note (V)" title="Paste a class note (V)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M8.5 10h7M8.5 14h7M8.5 18h4"/></svg>
@@ -38,7 +46,7 @@
       </header>
 
       <section class="hero" aria-label="Summary">
-        <div id="companion" class="companion" aria-hidden="true"></div>
+        <button id="companion" class="companion" type="button" aria-label="Say hi to your training buddy"></button>
         <div class="hero-text">
           <p id="rank" class="rank"></p>
           <p id="hours" class="hours"></p>
@@ -84,7 +92,10 @@
     <dialog id="tech" class="sheet tall" aria-labelledby="tech-title"></dialog>
     <dialog id="paste" class="sheet" aria-labelledby="paste-title"></dialog>
     <dialog id="shortcuts" class="sheet" aria-labelledby="shortcuts-title"></dialog>
-    <dialog id="focus-sheet" class="sheet" aria-labelledby="focus-title"></dialog>
+    <dialog id="focus-sheet" class="sheet tall" aria-labelledby="focus-title"></dialog>
+    <dialog id="problems" class="sheet" aria-labelledby="problems-title"></dialog>
+    <dialog id="reflect" class="sheet" aria-labelledby="reflect-title"></dialog>
+    <dialog id="clock" class="clock" aria-label="Round clock"></dialog>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

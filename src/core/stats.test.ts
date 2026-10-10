@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { currentRank, matMinutes, moveStats, nextPatch, patterns, positionGraph, rankTimeline, rollsIn, rollStats, techniqueUses, unlockedPatches, weekHeatmap, weekRecap } from './stats';
+import { currentRank, matMinutes, moveStats, nextPatch, positionalStats, skillLadder, patterns, positionGraph, rankTimeline, rollsIn, rollStats, techniqueUses, unlockedPatches, weekHeatmap, weekRecap } from './stats';
 import { at, ev, MIN } from './testUtil';
 
 const now = at(2026, 10, 9, 20);
@@ -157,5 +157,30 @@ describe('moves tried and landed in rounds', () => {
     const more = [...events, ev('roll', at(2026, 10, 4), { landed: ['knee-cut'] })];
     expect(patterns(more, now).find((p) => p.id === 'move')?.text).toBe('Your most-landed move in rounds is the knee cut pass: 3 of 4 attempts.');
     expect(patterns(events, now).find((p) => p.id === 'move')).toBeUndefined();
+  });
+});
+
+describe('skill ladder and positional rounds', () => {
+  const prefs = { startBelt: 'blue' as const, startStripes: 0 };
+  const events = [
+    ev('roll', at(2026, 10, 1), { belt: 'white', size: 'bigger', landed: ['knee-cut'] }),
+    ev('roll', at(2026, 10, 2), { belt: 'purple', size: 'similar', tried: ['knee-cut'] }),
+    ev('roll', at(2026, 10, 3), { tried: ['knee-cut'], start: 'side-control', role: 'bottom' }),
+    ev('promotion', at(2026, 10, 4), { belt: 'purple' }),
+    ev('roll', at(2026, 10, 5), { belt: 'purple', size: 'similar', landed: ['knee-cut'], start: 'half-guard', role: 'top' }),
+    ev('roll', at(2026, 10, 6), { belt: 'white', size: 'smaller', subsFor: ['triangle'], start: 'turtle' }),
+  ];
+  it('places each attempt by partner size and belt against yours at the time', () => {
+    const l = skillLadder(events, 'knee-cut', prefs);
+    expect(l.total).toEqual({ attempts: 4, landed: 2 });
+    expect(l.cells.bigger.lower).toEqual({ attempts: 1, landed: 1 });
+    expect(l.cells.similar.higher).toEqual({ attempts: 1, landed: 0 }); // purple vs blue
+    expect(l.cells.similar.similar).toEqual({ attempts: 1, landed: 1 }); // purple vs purple, after the promotion
+    expect(l.unknown).toEqual({ attempts: 1, landed: 0 });
+    // A submission technique counts finishes.
+    expect(skillLadder(events, 'triangle', prefs).cells.smaller.lower).toEqual({ attempts: 1, landed: 1 });
+  });
+  it('counts positional rounds and bad spots', () => {
+    expect(positionalStats(events)).toMatchObject({ rolls: 5, positional: 3, badSpots: 2 });
   });
 });

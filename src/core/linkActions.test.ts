@@ -45,3 +45,15 @@ describe('parseLinkAction', () => {
     expect(stripLinkAction('https://x.dev/matlog/?do=log&type=class&min=60&keep=1#h')).toBe('/matlog/?keep=1#h');
   });
 });
+
+describe('v0.3 link parameters', () => {
+  it('reads study, positional rounds and check-ins', () => {
+    expect(parseLinkAction('?do=log&type=study&min=10&source=Half guard series')).toMatchObject({ what: 'study', detail: { min: 10, source: 'Half guard series' } });
+    expect(parseLinkAction('?do=log&type=roll&from=side control&role=bottom')).toMatchObject({ detail: { start: 'side-control', role: 'bottom' } });
+    expect(parseLinkAction('?do=log&type=class&min=60&enjoy=4&plan=partly')).toMatchObject({ detail: { enjoy: 4, plan: 'partly' } });
+    expect(parseLinkAction('?do=log&type=class&from=mount')).toMatchObject({ kind: 'invalid' });
+    expect(parseLinkAction('?do=log&type=roll&enjoy=4')).toMatchObject({ kind: 'invalid' });
+    expect(parseLinkAction('?do=log&type=class&source=x')).toMatchObject({ kind: 'invalid' });
+    expect(parseLinkAction('?do=log&type=class&enjoy=9')).toMatchObject({ kind: 'invalid' });
+  });
+});

@@ -15,7 +15,13 @@ import { openSettings } from './ui/settingsView';
 import { openShortcuts } from './ui/shortcuts';
 import { openTech } from './ui/techView';
 import { applyTheme } from './ui/theme';
-import { mountBanner, showBanner } from './ui/backup';
+import { mountBanner, showBanner } from './ui/banner';
+import { openClock } from './ui/roundClock';
+import { openProblems } from './ui/problemsView';
+import { onLadder } from './ui/focusView';
+import { companionSay } from './ui/companion';
+import { setCustomTechniques } from './core/catalog';
+import { customFromLog } from './core/library';
 import { showSplash } from './ui/splash';
 import { currentRank } from './core/stats';
 import { toast, undoLast } from './ui/toast';
@@ -38,11 +44,14 @@ mountBanner();
 document.getElementById('app-version')!.textContent = `v${__APP_VERSION__}`;
 document.getElementById('settings-open')!.addEventListener('click', openSettings);
 document.getElementById('progress-open')!.addEventListener('click', openProgress);
-document.getElementById('tech-open')!.addEventListener('click', openTech);
+document.getElementById('tech-open')!.addEventListener('click', () => openTech());
+document.getElementById('clock-open')!.addEventListener('click', openClock);
+document.getElementById('companion')!.addEventListener('click', companionSay);
+onLadder((id) => openTech(id));
 document.getElementById('paste-open')!.addEventListener('click', () => openPaste());
 document.getElementById('shortcuts-open')!.addEventListener('click', openShortcuts);
 
-document.getElementById('focus')!.addEventListener('click', openFocus);
+document.getElementById('focus')!.addEventListener('click', () => openFocus());
 
 let frame = 0;
 function render() {
@@ -62,6 +71,10 @@ function render() {
   });
 }
 
+// Your own techniques live in the log; the catalog lookups see them through this registry.
+app.subscribe((s, prev) => {
+  if (s.events !== prev.events) setCustomTechniques(customFromLog(s.events));
+});
 app.subscribe(render);
 // New entries can make the backup reminder due; settings changes (a backup, "Not now") can clear it.
 app.subscribe((s, prev) => {
@@ -77,6 +90,8 @@ settings.subscribe((s, prev) => {
 setInterval(() => {
   if (document.visibilityState === 'visible') render();
 }, 1000);
+// The reflection prompt comes due with time, not with a change.
+setInterval(showBanner, 30_000);
 document.addEventListener('visibilitychange', render);
 
 async function copyWeek() {
@@ -98,6 +113,8 @@ document.addEventListener('keydown', (e) => {
   else if (key === 't') openTech();
   else if (key === 'v') openPaste();
   else if (key === 'f') openFocus();
+  else if (key === 'k') openClock();
+  else if (key === 'b') openProblems();
   else if (key === 'm') void copyWeek();
   else if (key === 'u') {
     if (!undoLast()) toast('Nothing to undo');

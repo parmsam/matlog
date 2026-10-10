@@ -3,6 +3,7 @@ import { isSession } from '../core/events';
 import { app, settings } from '../core/log';
 import { currentRank, matMinutes, PATCHES } from '../core/stats';
 import type { Belt } from '../core/types';
+import { nextLine } from './buddyLines';
 
 /**
  * A little training buddy (a grappler, bear, sloth, octopus, frog or cat). It wears your belt (and stripes), a gi or a rashguard to
@@ -177,4 +178,25 @@ export function companionReact(r: Reaction) {
   buddy.classList.add(`react-${r}`);
   clearTimeout(reactTimer);
   reactTimer = window.setTimeout(() => buddy.classList.remove(`react-${r}`), 1200);
+}
+
+let sayTimer: number | undefined;
+/** Tap the buddy: a line in its own voice, taking turns with shared ones. */
+export function companionSay() {
+  const prefs = settings.get();
+  if (prefs.companion === 'off') return;
+  const id = buddyFor(prefs.companion, dayKey(Date.now()));
+  let bubble = document.getElementById('buddy-says');
+  if (!bubble) {
+    bubble = document.createElement('p');
+    bubble.id = 'buddy-says';
+    bubble.className = 'buddy-says';
+    bubble.setAttribute('role', 'status');
+    host().after(bubble);
+  }
+  bubble.textContent = nextLine(id);
+  bubble.hidden = false;
+  companionReact('cheer');
+  clearTimeout(sayTimer);
+  sayTimer = window.setTimeout(() => (bubble!.hidden = true), 3200);
 }

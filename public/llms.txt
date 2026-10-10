@@ -14,9 +14,13 @@ Open the app with a `do` query parameter to log something. The parameters are re
 - `&min=90`: length in minutes (1–600). With a length, start and toggle log a finished entry instead
 - `&ago=15`: it ended (log) or started (start) 15 minutes ago (0–527040)
 - `&gi=gi|nogi`, `&tech=knee cut,armbar from guard` (techniques, comma-separated; unknown names are kept as typed)
-- Rounds only: `&partner=Sam&belt=white|blue|purple|brown|black&size=smaller|similar|bigger&sub=armbar,rnc&tapped=triangle&stuck=half guard&outcome=win|loss|draw`
+- Rounds only (a round belongs to whatever session it happens in: class, open mat, drilling or comp): `&partner=Sam&belt=white|blue|purple|brown|black&size=smaller|similar|bigger&sub=armbar,rnc&tapped=triangle&stuck=half guard&outcome=win|loss|draw`
 - Moves in a round: `&landed=knee cut,scissor sweep` (you landed them) and `&tried=berimbolo` (you went for it, it didn't land)
+- Positional rounds: `&from=side control&role=bottom|top`
+- Sessions: `&enjoy=1..5&plan=yes|partly|no` (a check-in)
+- Study (not mat time): `?do=log&type=study&min=10&source=Half guard series`
 - `&note=…` on anything
+- Classes start on the hour by default (a setting): a class logged after the fact starts on the hour at or before; a live one started within 10 minutes after the hour starts on it
 
 Examples: `?do=log&type=class&min=90&gi=nogi&tech=knee cut`, `?do=toggle&type=roll`, `?do=log&type=roll&partner=Jo&belt=blue&sub=rnc`.
 
@@ -37,7 +41,9 @@ When you control the page (Playwright `page.evaluate`, DevTools, a browser agent
 - `matlog.stats()`: subs hit and tapped to, ratio, stuck positions, partners, by partner belt
 - `matlog.techniques()`: each technique with sessions drilled, `landed` and `attempts` in rounds, last used, and from → to positions
 - `matlog.patterns()`: plain descriptions, each with what it's based on
-- `matlog.focus(text?)`: read or set "Working on" (`''` clears). Returns `{ text, since, tracking: { kind, id } | null, sinceThen: { sessions, drilled, attempts, landed, stuck, hit, tapped }, history }`. Only set it when the person asks
+- `matlog.focus(text?, opts?)`: focuses, running first, each with `{ text, role, state: 'active'|'over'|'resting'|'done', week, weeks, blocks, ifWorks, ifFails, tracking, thisBlock }`. With text, adds one: opts `{ role: 'main'|'complement'|'habit'|'experiment'|'side', blockDays: 7|14, ifWorks, ifFails, target }`. Only add one when the person asks
+- `matlog.problems(text?, opts?)`: `{ open, solved }`. With text, logs a problem: opts `{ source: 'internal'|'external'|'predictive', idea }`
+- `matlog.solve(id)`: mark a problem solved
 
 ## Class note format
 
@@ -63,8 +69,10 @@ A heading naming a session (class, open mat, drilling, comp) starts one; a "Roll
   `matlog.log('roll', { partner: 'Sam', belt: 'purple', subs: 'armbar', stuck: 'half guard' })`.
 - At open mat I landed a knee cut twice and went for a berimbolo
   One round each: `matlog.log('roll', { landed: 'knee cut', tried: 'berimbolo' })`, `matlog.log('roll', { landed: 'knee cut' })`.
-- I'm working on my knee cut
-  `matlog.focus('knee cut')`; later `matlog.focus().sinceThen`.
+- I'm working on my knee cut for the next two weeks
+  `matlog.focus('knee cut', { role: 'main', blockDays: 14 })`; later `matlog.focus()[0].thisBlock`.
+- I keep getting flattened in half guard
+  `matlog.problems('getting flattened in half guard', { source: 'internal' })`; `matlog.solve(id)` once it's solved.
 - How many mat hours do I have?
   `matlog.state().matHours`.
 - What do I get stuck in, and what do I tap to?

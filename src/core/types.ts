@@ -1,6 +1,10 @@
-/** Training sessions (timed: tap to start, tap to stop), single rounds, and promotions. */
+/**
+ * Training sessions (timed: tap to start, tap to stop), single rounds, study time, promotions, and
+ * the notebook: focuses you're working on and problems you're solving. Everything is an event, so
+ * it all merges, backs up and undoes the same way.
+ */
 export type SessionKind = 'class' | 'open-mat' | 'drilling' | 'comp';
-export type EventType = SessionKind | 'roll' | 'promotion';
+export type EventType = SessionKind | 'roll' | 'study' | 'promotion' | 'focus' | 'problem' | 'technique';
 
 export type Belt = 'white' | 'blue' | 'purple' | 'brown' | 'black';
 export const BELTS: Belt[] = ['white', 'blue', 'purple', 'brown', 'black'];
@@ -33,11 +37,85 @@ export interface Detail {
   /** Technique ids you went for but didn't land. */
   tried?: string[];
   outcome?: Outcome; // comp matches
+  /** Positional round: where it started (position id) and which side you were on. */
+  start?: string;
+  role?: Role;
+
+  // Session check-in (usually filled in when reflecting)
+  /** How much you enjoyed it, 1–5. */
+  enjoy?: number;
+  /** Did you follow your plan? */
+  plan?: PlanFollowed;
+  /** When you reflected on it (the notebook prompt stops asking). */
+  reflectedAt?: number;
+
+  // Study
+  /** What you studied: an instructional, a coach, a video. */
+  source?: string;
+  url?: string;
+
+  // Your own technique (Technique library)
+  technique?: CustomTechnique;
+
+  // Notebook
+  focus?: FocusDetail;
+  problem?: ProblemDetail;
 
   // Promotions
   stripes?: number; // 0–4
 
   note?: string;
+}
+
+export type Role = 'top' | 'bottom';
+export type PlanFollowed = 'yes' | 'partly' | 'no';
+
+/** What a focus is in your game (from "build a few connected skills deeply"). */
+export type FocusRole = 'main' | 'complement' | 'habit' | 'experiment' | 'side';
+
+/** A block of work on a focus. `to` is set when you rest it or finish it. */
+export interface FocusBlock {
+  from: number;
+  to?: number;
+}
+
+export interface FocusDetail {
+  text: string;
+  role: FocusRole;
+  /** Block length in days: 7 ("one position, one week") or 14 ("about 2 weeks"). */
+  blockDays: number;
+  blocks: FocusBlock[];
+  /** Your plan: where you go if it works, and if it fails. */
+  ifWorks?: string;
+  ifFails?: string;
+  /** Reps a session that would count as a good day (e.g. 1–2 against live resistance). */
+  target?: number;
+  /** Marked done (no more blocks planned). */
+  doneAt?: number;
+}
+
+export interface CustomTechnique {
+  /** The text it was first typed as; entries refer to it by this. */
+  id: string;
+  label: string;
+  kind: 'takedown' | 'sweep' | 'pass' | 'transition' | 'escape' | 'submission';
+  from: string;
+  to: string;
+  aka?: string[];
+}
+
+export type ProblemSource = 'external' | 'internal' | 'predictive';
+
+export interface ProblemDetail {
+  text: string;
+  source?: ProblemSource;
+  /** Idea to try / solution. */
+  idea?: string;
+  /** Did you tinker in the position before looking it up? */
+  tinkered?: boolean;
+  solvedAt?: number;
+  /** The session it came up in, if any. */
+  sessionId?: string;
 }
 
 export interface LogEvent {
@@ -62,6 +140,7 @@ export interface LogData {
 export type CompanionChoice = 'grappler' | 'bear' | 'sloth' | 'octopus' | 'frog' | 'cat' | 'random' | 'off';
 export type ThemeChoice = 'auto' | 'gi' | 'nogi';
 export type ClockFormat = 'auto' | '12h' | '24h';
+export type ReflectAfter = 0 | 60 | 120 | 240 | -1;
 export type PatchId = 'p10' | 'p25' | 'p50' | 'p100' | 'p250' | 'p500' | 'p1000';
 
 export interface Settings {
@@ -91,16 +170,22 @@ export interface Settings {
   splash: boolean;
   /** Your belt as of the last visit, so the splash can show it before the log loads. */
   lastBelt: Belt;
-  /** "Working on": what you want to try next class. Shown on the home screen; yours, never suggested. */
+  /**
+   * v0.2 kept one "Working on" line here. It moves into the log as a focus event on load
+   * (see core/focus.ts migrateFocus) and these stay empty afterwards.
+   */
   focus: string;
-  /** When the current focus was set (null if none). */
   focusSince: number | null;
-  /** Earlier focuses, newest first (up to 12). */
-  focusHistory: FocusEntry[];
-}
-
-export interface FocusEntry {
-  text: string;
-  from: number;
-  to: number;
+  focusHistory: { text: string; from: number; to: number }[];
+  /** Minutes after a session ends before the reflection prompt shows; -1 = off. */
+  reflectAfter: ReflectAfter;
+  /** Sessions whose reflection prompt was put off ("Not now"). */
+  reflectSkipped: string[];
+  /** Round clock: round and rest length in minutes. */
+  roundMin: number;
+  restMin: number;
+  /** Home-screen buttons turned off (kind ids). Links, keys and the API still work. */
+  hiddenCards: string[];
+  /** Classes start on the hour: snap class start times (see core/ops.ts classStart). */
+  classOnHour: boolean;
 }

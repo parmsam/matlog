@@ -1,4 +1,5 @@
 import { loadAll, writeIdb, writeMirror } from './db';
+import { migrateFocus } from './focus';
 import { mergeData, patchEvent } from './events';
 import { loadSettings, saveSettings } from './settings';
 import { createStore, persist } from './store';
@@ -25,6 +26,12 @@ export function setupPersistence() {
 export async function init(): Promise<{ restored: number }> {
   const data = await loadAll();
   app.set({ events: data.events, loaded: true, idbOk: data.idbOk });
+  // v0.2's "Working on" line lived in settings; it moves into the log as focus events.
+  const s = settings.get();
+  if (s.focus || s.focusHistory.length) {
+    addEvents(migrateFocus(s, data.events, Date.now()));
+    settings.set({ focus: '', focusSince: null, focusHistory: [] });
+  }
   if (data.restored || !data.idbOk) scheduleMirror();
   return { restored: data.restored };
 }

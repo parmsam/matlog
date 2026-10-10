@@ -6,8 +6,10 @@ export function openShortcuts() {
   const row = (keys: string[], what: string) => `<tr><td>${keys.map((k) => `<kbd>${k}</kbd>`).join(' ')}</td><td>${what}</td></tr>`;
   d.innerHTML = `${sheetHead('shortcuts-title', 'Keyboard shortcuts')}<div class="sheet-body"><table class="data"><tbody>
     ${KINDS.map((k) => row([k.key.toUpperCase()], `Start / stop ${k.label.toLowerCase()} (Shift: log a finished one)`)).join('')}
+    ${row(['K'], 'Round clock')}
+    ${row(['B'], 'Problems')}
     ${row(['U'], 'Undo')}
-    ${row(['F'], 'Edit "Working on"')}
+    ${row(['F'], 'Working on (focus blocks)')}
     ${row(['G'], 'Progress')}
     ${row(['T'], 'Technique library')}
     ${row(['V'], 'Paste a class note')}

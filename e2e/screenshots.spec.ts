@@ -36,7 +36,7 @@ async function seed(page: Page) {
   });
 }
 
-const settings = { startBelt: 'blue' as const, startStripes: 2, focus: 'knee cut pass', focusSince: Date.now() - 12 * 86_400_000, backupSnoozedAt: 1000, backupLaterAt: Date.now(), patches: ['p10' as const, 'p25' as const, 'p50' as const], theme: 'auto' as const };
+const settings = { classOnHour: false, startBelt: 'blue' as const, startStripes: 2, focus: 'knee cut pass', focusSince: Date.now() - 12 * 86_400_000, backupSnoozedAt: 1000, backupLaterAt: Date.now(), patches: ['p10' as const, 'p25' as const, 'p50' as const], theme: 'auto' as const };
 
 test('desktop, progress, techniques', async ({ page }) => {
   await page.setViewportSize({ width: 1180, height: 900 });

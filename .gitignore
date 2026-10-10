@@ -4,3 +4,6 @@ dist/
 *.local
 test-results/
 playwright-report/
+
+# Reference material (study guides, other apps): study only, never commit
+ref/

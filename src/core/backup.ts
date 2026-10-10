@@ -1,14 +1,16 @@
 import type { EventType, LogData, LogEvent } from './types';
 
-const TYPES: ReadonlySet<EventType> = new Set(['class', 'open-mat', 'drilling', 'comp', 'roll', 'promotion']);
+const TYPES: ReadonlySet<EventType> = new Set(['class', 'open-mat', 'drilling', 'comp', 'roll', 'study', 'promotion', 'focus', 'problem', 'technique']);
 
 export interface Backup extends LogData {
   app: 'matlog';
   version: 1;
   exportedAt: number;
+  /** Your name as set when exporting; left out when there isn't one. */
+  name?: string;
 }
 
-export const toBackup = (data: LogData, now: number): Backup => ({ app: 'matlog', version: 1, exportedAt: now, events: data.events });
+export const toBackup = (data: LogData, now: number, name = ''): Backup => ({ app: 'matlog', version: 1, exportedAt: now, ...(name.trim() ? { name: name.trim().slice(0, 60) } : {}), events: data.events });
 
 export function backupFilename(now: number): string {
   const d = new Date(now);
@@ -36,7 +38,7 @@ function validEvent(e: unknown): e is LogEvent {
 export class BackupError extends Error {}
 
 /** Parses an export. Invalid entries are skipped (and counted) rather than failing the whole import. */
-export function parseBackup(text: string): LogData & { skipped: number } {
+export function parseBackup(text: string): LogData & { skipped: number; name?: string } {
   let data: unknown;
   try {
     data = JSON.parse(text);
@@ -48,5 +50,6 @@ export function parseBackup(text: string): LogData & { skipped: number } {
   if (typeof b.version !== 'number' || b.version > 1) throw new BackupError('That export is from a newer version of matlog. Update the app first.');
   const raw = Array.isArray(b.events) ? b.events : [];
   const events = raw.filter(validEvent);
-  return { events, skipped: raw.length - events.length };
+  const name = typeof b.name === 'string' ? b.name.trim().slice(0, 60) : '';
+  return { events, skipped: raw.length - events.length, ...(name ? { name } : {}) };
 }

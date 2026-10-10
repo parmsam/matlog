@@ -36,6 +36,20 @@ function toastHost(): HTMLElement {
   return host;
 }
 
+// A toast shown just before its sheet closes ("Saved") would vanish with it: when a dialog
+// closes, the host moves back to the page (or the sheet still open underneath).
+// (Guarded: tests import this module's neighbours outside a browser.)
+globalThis.document?.addEventListener(
+  'close',
+  (e) => {
+    if (host && e.target instanceof HTMLDialogElement && e.target.contains(host)) {
+      const sheets = [...document.querySelectorAll<HTMLDialogElement>('dialog[open]')].filter(isModal);
+      (sheets.at(-1) ?? document.body).append(host);
+    }
+  },
+  true,
+);
+
 /** The latest Undo on offer, so the U key can use it even after its toast has faded. */
 let lastUndo: { run: () => void; at: number } | null = null;
 const UNDO_WINDOW = 5 * 60_000;

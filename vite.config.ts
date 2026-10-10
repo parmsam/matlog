@@ -13,7 +13,7 @@ export default defineConfig({
     VitePWA({
       // Ask before updating: silently reloading could interrupt a round timer mid-entry.
       registerType: 'prompt',
-      includeAssets: ['favicon.svg', 'llms.txt'],
+      includeAssets: ['favicon.svg', 'favicon.ico', 'favicon-32.png', 'apple-touch-icon.png', 'llms.txt'],
       manifest: {
         name: 'matlog · BJJ training journal',
         short_name: 'matlog',
@@ -23,9 +23,14 @@ export default defineConfig({
         display: 'standalone',
         start_url: '/matlog/',
         scope: '/matlog/',
+        // PNGs for Android installs (Chrome wants 192 and 512), a maskable one with the mark inside the
+        // safe zone so launchers can crop it to any shape, and the SVG for browsers that use it.
+        // Regenerate with `node scripts/icons.mjs`.
         icons: [
+          { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
           { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml' },
-          { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
         ],
         // Long-press the installed app icon (Android, desktop). These use the ?do= link actions.
         shortcuts: [
@@ -35,7 +40,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,txt,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,txt,webmanifest}'],
         navigateFallbackDenylist: [/^[^?#]*\/[^/?#]+\.[^/?#]+$/],
         runtimeCaching: [
           { urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i, handler: 'StaleWhileRevalidate', options: { cacheName: 'google-fonts-css' } },

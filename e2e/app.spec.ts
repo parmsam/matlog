@@ -166,26 +166,6 @@ test('every buddy draws, and ties its belt on start', async ({ page }) => {
   await expect(page.locator('#companion svg')).toHaveAttribute('data-state', 'training');
 });
 
-test('working on: set from the home card, tracked, kept in history', async ({ page }) => {
-  await open(page);
-  await page.locator('#focus').click();
-  const d = page.locator('#focus-sheet');
-  await d.locator('[data-focus]').fill('knee slice from half');
-  await expect(d.locator('[data-match]')).toContainText('Knee cut pass');
-  await d.locator('[data-focus]').press('Enter');
-  await expect(page.locator('#focus')).toContainText('knee slice from half');
-  await page.evaluate(() => window.matlog.log('roll', { landed: 'knee cut' }));
-  await page.evaluate(() => window.matlog.log('roll', { tried: 'knee cut' }));
-  await expect(page.locator('#focus')).toContainText('landed 1 of 2 in rounds');
-  await page.keyboard.press('f');
-  await d.locator('[data-focus]').fill('breathing under side control');
-  await d.getByRole('button', { name: 'Save' }).click();
-  await page.keyboard.press('f');
-  await expect(d.locator('.focus-history')).toContainText('knee slice from half');
-  await d.getByRole('button', { name: 'Use again' }).click();
-  await expect(d.locator('[data-focus]')).toHaveValue('knee slice from half');
-});
-
 test('backup reminder: Back up now and Not now', async ({ page }) => {
   const old = Date.now() - 10 * 24 * 60 * MIN;
   const events = Array.from({ length: 6 }, (_, i) => ev('class', old + i * 60 * MIN, { detail: { min: 60 }, createdAt: old + i }));

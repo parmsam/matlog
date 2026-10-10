@@ -1,12 +1,13 @@
 import { duration, clockTime } from '../core/format';
-import { kindById, ongoingFor, type KindId } from '../core/kinds';
+import { runningFocuses } from '../core/focus';
+import { kindById, ongoingFor, ongoingSession, type KindId } from '../core/kinds';
 import { app, deleteEvent, getEvent, revertTo, settings, updateEvent } from '../core/log';
-import { toggleKind, type OpResult } from '../core/ops';
+import { startKind, toggleKind, type OpResult } from '../core/ops';
 import { matMinutes, unlockedPatches } from '../core/stats';
 import type { LogEvent } from '../core/types';
 import { companionReact } from './companion';
 import { requestPersistence } from './persist';
-import { lastAttire, openSheet } from './sheet';
+import { lastAttire, onNextRound, openSheet } from './sheet';
 import { toast, type ToastAction } from './toast';
 
 const MIN = 60_000;
@@ -26,6 +27,28 @@ function shiftChips(e: LogEvent, onShift: (ts: number) => void): ToastAction[] {
       onShift(end !== undefined ? end - m * MIN : at);
     },
   }));
+}
+
+/** A class moved to the hour offers its exact time back: on the hour is only the default. */
+function exactChip(r: OpResult, onShift: (ts: number) => void): ToastAction[] {
+  if ((r.kind !== 'started' && r.kind !== 'logged') || r.snappedFrom === undefined) return [];
+  const exact = r.snappedFrom;
+  return [
+    {
+      label: `Use ${clockTime(exact, settings.get().clock)}`,
+      keepOpen: true,
+      run: () => {
+        updateEvent(r.event.id, { at: exact });
+        onShift(exact);
+      },
+    },
+  ];
+}
+
+/** "Today: knee cut · week 2 of 2": the notebook by the water bottle, glanced at before rounds. */
+function focusLine(now: number): string {
+  const [v] = runningFocuses(app.get().events, now);
+  return v ? ` · Today: ${v.f.text}${v.state === 'over' ? ' (block over)' : ` · week ${v.week} of ${v.weeks}`}` : '';
 }
 
 /** Toasts when a log crosses a mat-hour milestone. Derived: compares before and after. */
@@ -58,9 +81,22 @@ export function present(r: OpResult, opts: { prefix?: string; before?: number } 
       return;
     case 'started': {
       if (r.what !== 'roll') companionReact('tie');
-      const label = (ts: number) => `${prefix}${def.emoji} ${def.label} started · ${t(ts)}`;
+      const session = r.what !== 'roll' && r.what !== 'study';
+      const focus = session ? focusLine(Date.now()) : '';
+      const label = (ts: number) => `${prefix}${def.emoji} ${def.label} started · ${t(ts)}${focus}`;
+      // Rounds mostly happen at open mat: a round with nothing running offers to start one, so the rounds have a home.
+      const openMat: ToastAction[] =
+        r.what === 'roll' && !ongoingSession(app.get().events)
+          ? [{ label: 'Start open mat', run: () => present(startKind('open-mat', { at: r.event.at })) }]
+          : [];
       const h = toast(label(r.event.at), {
-        actions: [{ label: 'Undo', primary: true, run: () => deleteEvent(r.event.id) }, ...shiftChips(r.event, (ts) => h.update(label(ts))), { label: 'Details', run: () => openSheet({ event: getEvent(r.event.id)! }) }],
+        actions: [
+          { label: 'Undo', primary: true, run: () => deleteEvent(r.event.id) },
+          ...exactChip(r, (ts) => h.update(label(ts))),
+          ...shiftChips(r.event, (ts) => h.update(label(ts))),
+          ...openMat,
+          { label: 'Details', run: () => openSheet({ event: getEvent(r.event.id)! }) },
+        ],
       });
       return;
     }
@@ -72,7 +108,12 @@ export function present(r: OpResult, opts: { prefix?: string; before?: number } 
       if (checkPatch(before)) return;
       const label = (ts: number) => `${prefix}${def.emoji} ${def.label} · ${duration(min * MIN)}, ended ${t(ts + min * MIN)}`;
       const h = toast(label(ev.at), {
-        actions: [{ label: 'Undo', primary: true, run: () => deleteEvent(ev.id) }, ...shiftChips(ev, (ts) => h.update(label(ts))), { label: 'Details', run: () => openSheet({ event: getEvent(ev.id)! }) }],
+        actions: [
+          { label: 'Undo', primary: true, run: () => deleteEvent(ev.id) },
+          ...exactChip(r, (ts) => h.update(label(ts))),
+          ...shiftChips(ev, (ts) => h.update(label(ts))),
+          { label: 'Details', run: () => openSheet({ event: getEvent(ev.id)! }) },
+        ],
       });
       return;
     }
@@ -113,7 +154,7 @@ export function tapKind(id: KindId, now = Date.now()) {
   requestPersistence();
   const before = matMinutes(app.get().events, now);
   const running = ongoingFor(app.get().events, id);
-  const attire = id !== 'roll' && !running ? lastAttire() : undefined;
+  const attire = id !== 'roll' && id !== 'study' && !running ? lastAttire() : undefined;
   present(toggleKind(id, { at: now, detail: attire ? { attire } : undefined }), { before });
 }
 
@@ -121,6 +162,9 @@ export function tapKind(id: KindId, now = Date.now()) {
 export function holdKind(id: KindId) {
   const on = ongoingFor(app.get().events, id);
   if (on) return openSheet({ event: on });
-  const attire = id !== 'roll' ? lastAttire() : undefined;
+  const attire = id !== 'roll' && id !== 'study' ? lastAttire() : undefined;
   openSheet({ type: id, detail: attire ? { attire } : undefined });
 }
+
+// "Next round" in a saved round's toast starts the next one, through the same path as a tap.
+onNextRound(() => present(startKind('roll'), { prefix: '' }));

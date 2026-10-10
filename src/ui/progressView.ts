@@ -2,8 +2,12 @@ import { addDays, dayDate, dayKey, dayStart } from '../core/days';
 import { duration, hours, plural } from '../core/format';
 import { app, deleteEvent, revertTo, settings } from '../core/log';
 import { toMarkdown } from '../core/markdown';
-import { matMinutes, moveStats, patterns, PATCHES, rankTimeline, rollStats, sessions, weekHeatmap, weekRecap, type Count } from '../core/stats';
+import { matMinutes, moveStats, positionalStats, patterns, PATCHES, rankTimeline, rollStats, sessions, weekHeatmap, weekRecap, type Count } from '../core/stats';
 import { heatmapSvg } from '../viz/heatmap';
+import { blocksSvg } from '../viz/blocks';
+import { focuses } from '../core/focus';
+import { processStats } from '../core/notebook';
+import { openProblems } from './problemsView';
 import { patchSvg } from '../viz/patch';
 import { BELT_LABEL, beltSwatch, copyText, esc, openDialog, sheetHead } from './dom';
 import { openSheet } from './sheet';
@@ -36,6 +40,9 @@ function render() {
   const pats = patterns(events, now);
   const steps = rankTimeline(events, prefs, now);
   const moves = moveStats(events);
+  const proc = processStats(events);
+  const fv = focuses(events, now);
+  const pos = positionalStats(events);
   const moveRounds = events.filter((e) => !e.deleted && e.type === 'roll' && (e.detail?.landed?.length || e.detail?.tried?.length)).length;
 
   const ratio =
@@ -110,6 +117,27 @@ function render() {
       ${bars(rs.stuck, 'var(--k-drilling)', '', 8)}
     </section>
 
+    <section class="block"><h3>How sessions felt</h3>
+      ${proc.rated || proc.plan.yes + proc.plan.partly + proc.plan.no ? `<div class="tiles">
+        <div class="tile"><div class="v">${proc.enjoyAvg !== null ? proc.enjoyAvg.toFixed(1) : '–'}</div><div class="k">enjoyment, of 5 (${plural(proc.rated, 'session')})</div></div>
+        <div class="tile"><div class="v">${proc.plan.yes + proc.plan.partly + proc.plan.no ? `${proc.plan.yes}/${proc.plan.yes + proc.plan.partly + proc.plan.no}` : '–'}</div><div class="k">followed the plan${proc.plan.partly ? ` (${proc.plan.partly} partly)` : ''}</div></div>
+        <div class="tile"><div class="v">${proc.reflected}</div><div class="k">sessions reflected on</div></div>
+      </div>
+      ${proc.enjoyByMonth.length > 1 ? `<div class="bars">${proc.enjoyByMonth
+        .slice(-6)
+        .map((m) => `<div class="bar-row"><span>${new Date(`${m.month}-15T12:00`).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</span><span class="track"><span class="fill" style="display:block;width:${(m.avg / 5) * 100}%"></span></span><span class="n">${m.avg.toFixed(1)}</span></div>`)
+        .join('')}</div><p class="basis">Average enjoyment by month, from your check-ins.</p>` : ''}` : '<p class="empty">Rate how a session felt and whether you followed your plan when you reflect, or in a session’s details. Judge a session by how you trained, not by taps.</p>'}
+      <p class="basis">${plural(proc.problemsOpen, 'open problem')} · ${proc.problemsSolved} solved${proc.tinkered ? ` (${proc.tinkered} after tinkering first)` : ''} <button type="button" class="chip" data-problems>Problems</button></p>
+    </section>
+
+    <section class="block"><h3>Focus blocks</h3>
+      ${fv.length ? `<div class="viz">${blocksSvg(fv, now)}</div><p class="basis">Each bar is a block of work on a focus; gaps are rests.</p>` : '<p class="empty">Set what you’re working on (the card on the home screen) and its blocks show here.</p>'}
+    </section>
+
+    <section class="block"><h3>Positional rounds</h3>
+      ${pos.positional ? `<p class="basis">${pos.positional} of ${plural(pos.rolls, 'round')} started from a position${pos.badSpots ? `, ${pos.badSpots} from a bad spot (bottom of a pin, or turtle)` : ''}.</p>${bars(pos.byStart, 'var(--k-roll)', '', 8)}` : '<p class="empty">Note where a round started (Started from) to see positional rounds here.</p>'}
+    </section>
+
     <section class="block"><h3>Patterns</h3>
       ${pats.length ? `<ul class="patterns">${pats.map((p) => `<li>${esc(p.text)}<small>Based on ${esc(p.basis)}.</small></li>`).join('')}</ul>` : '<p class="empty">Patterns show up after a few sessions and rounds. They describe your log; they never tell you what to do.</p>'}
     </section>
@@ -143,6 +171,11 @@ export function openProgress() {
         const from = copy === 'all' ? first : addDays(today, -(Number(copy) - 1));
         const ok = await copyText(toMarkdown(app.get().events, from, today, now, settings.get().name));
         toast(ok ? 'Copied as Markdown' : "Couldn't copy");
+        return;
+      }
+      if (el.closest('[data-problems]')) {
+        d.close();
+        openProblems();
         return;
       }
       if (el.closest('[data-promo]')) {

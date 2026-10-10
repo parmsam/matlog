@@ -22,6 +22,12 @@ export const DEFAULT_SETTINGS: Settings = {
   focus: '',
   focusSince: null,
   focusHistory: [],
+  reflectAfter: 120,
+  reflectSkipped: [],
+  roundMin: 6,
+  restMin: 1,
+  hiddenCards: ['study'],
+  classOnHour: true,
   splash: true,
   lastBelt: 'white',
 };
@@ -64,6 +70,14 @@ export function sanitize(saved: Partial<Settings>): Settings {
   s.focus = typeof s.focus === 'string' ? s.focus.slice(0, 140) : '';
   if (!s.focus) s.focusSince = null;
   else if (!Number.isFinite(s.focusSince)) s.focusSince = null;
+  if (![0, 60, 120, 240, -1].includes(s.reflectAfter)) s.reflectAfter = 120;
+  s.reflectSkipped = Array.isArray(s.reflectSkipped) ? s.reflectSkipped.filter((x) => typeof x === 'string').slice(-30) : [];
+  if (!Number.isInteger(s.roundMin) || s.roundMin < 1 || s.roundMin > 20) s.roundMin = 6;
+  if (!Number.isInteger(s.restMin) || s.restMin < 0 || s.restMin > 10) s.restMin = 1;
+  const cards = ['class', 'open-mat', 'drilling', 'comp', 'roll', 'study'];
+  s.hiddenCards = Array.isArray(s.hiddenCards) ? [...new Set(s.hiddenCards.filter((id) => cards.includes(id)))] : [];
+  if (s.hiddenCards.length >= cards.length) s.hiddenCards = [];
+  s.classOnHour = s.classOnHour !== false;
   s.focusHistory = Array.isArray(s.focusHistory)
     ? s.focusHistory.filter((h) => h && typeof h.text === 'string' && h.text.trim() && Number.isFinite(h.from) && Number.isFinite(h.to)).slice(0, 12)
     : [];

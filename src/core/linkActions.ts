@@ -12,6 +12,8 @@ import type { KindId } from './kinds';
  *   &gi=nogi  &tech=knee cut,armbar  &note=…
  *   rolls: &partner=Sam&belt=purple&size=bigger&sub=armbar&tapped=triangle&stuck=half guard&outcome=win
  *          &landed=knee cut&tried=berimbolo  (moves you landed / went for)
+ *          &from=side control&role=bottom  (a positional round)
+ *   sessions: &enjoy=1..5&plan=yes|partly|no     study: &source=…
  *
  * Settings never travel in the URL. Parameters are removed once the action has run.
  */
@@ -21,7 +23,7 @@ export type LinkVerb = 'log' | 'start' | 'stop' | 'toggle';
 export type LinkAction = { kind: LinkVerb; what: KindId; detail: Detail; minutesAgo: number } | { kind: 'invalid'; reason: string };
 
 /** Query parameters that belong to an action (removed after it runs). */
-export const LINK_PARAMS = ['do', 'type', 'what', 'min', 'ago', 'gi', 'attire', 'tech', 'partner', 'belt', 'size', 'sub', 'tapped', 'stuck', 'landed', 'tried', 'outcome', 'note'] as const;
+export const LINK_PARAMS = ['do', 'type', 'what', 'min', 'ago', 'gi', 'attire', 'tech', 'partner', 'belt', 'size', 'sub', 'tapped', 'stuck', 'landed', 'tried', 'outcome', 'from', 'role', 'enjoy', 'plan', 'source', 'note'] as const;
 
 /** What people (and Siri) actually say. */
 const WHAT: Record<string, KindId> = {
@@ -42,6 +44,10 @@ const WHAT: Record<string, KindId> = {
   spar: 'roll',
   sparring: 'roll',
   match: 'roll',
+  study: 'study',
+  studying: 'study',
+  instructional: 'study',
+  video: 'study',
 };
 
 const SIZES: Record<string, Size> = { smaller: 'smaller', small: 'smaller', lighter: 'smaller', similar: 'similar', same: 'similar', even: 'similar', bigger: 'bigger', big: 'bigger', heavier: 'bigger', larger: 'bigger' };
@@ -65,7 +71,7 @@ export function parseLinkAction(search: string): LinkAction | null {
   const whatRaw = (q.get('type') ?? q.get('what'))?.trim().toLowerCase().replace(/[\s_]+/g, '-');
   if (!whatRaw) return { kind: 'invalid', reason: 'say what to log, e.g. &type=class' };
   const what = WHAT[whatRaw];
-  if (!what) return { kind: 'invalid', reason: `don't know “${whatRaw}” (try class, open-mat, drilling, comp or roll)` };
+  if (!what) return { kind: 'invalid', reason: `don't know “${whatRaw}” (try class, open-mat, drilling, comp, roll or study)` };
 
   const agoRaw = q.get('ago');
   const minutesAgo = agoRaw === null ? 0 : Math.round(Number(agoRaw));
@@ -117,6 +123,31 @@ export function parseLinkAction(search: string): LinkAction | null {
   if (outcome) {
     if (!OUTCOMES[outcome]) return { kind: 'invalid', reason: 'outcome is win, loss or draw' };
     detail.outcome = OUTCOMES[outcome];
+  }
+  const from = q.get('from')?.trim();
+  if (from) detail.start = resolvePosition(from);
+  const role = q.get('role')?.trim().toLowerCase();
+  if (role) {
+    if (role !== 'top' && role !== 'bottom') return { kind: 'invalid', reason: 'role is top or bottom' };
+    detail.role = role;
+  }
+  if (what !== 'roll' && (detail.start || detail.role)) return { kind: 'invalid', reason: 'from and role are for type=roll' };
+  const enjoy = q.get('enjoy');
+  if (enjoy !== null) {
+    const v = Math.round(Number(enjoy));
+    if (!(v >= 1 && v <= 5)) return { kind: 'invalid', reason: 'enjoy is 1–5' };
+    detail.enjoy = v;
+  }
+  const plan = q.get('plan')?.trim().toLowerCase();
+  if (plan) {
+    if (!['yes', 'partly', 'no'].includes(plan)) return { kind: 'invalid', reason: 'plan is yes, partly or no' };
+    detail.plan = plan as Detail['plan'];
+  }
+  if ((detail.enjoy || detail.plan) && (what === 'roll' || what === 'study')) return { kind: 'invalid', reason: 'enjoy and plan are for sessions' };
+  const source = q.get('source')?.trim().slice(0, 200);
+  if (source) {
+    if (what !== 'study') return { kind: 'invalid', reason: 'source is for type=study' };
+    detail.source = source;
   }
   if (what !== 'roll' && (detail.partner || detail.belt || detail.size || subsFor.length || subsAgainst.length || stuck.length || landed.length || tried.length || detail.outcome))
     return { kind: 'invalid', reason: 'partner, belt, size, sub, tapped, stuck, landed, tried and outcome are for type=roll' };

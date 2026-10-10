@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { app } from './log';
-import { logKind, startKind, stopKind, toggleKind } from './ops';
+import { app, settings } from './log';
+import { classStart, logKind, startKind, stopKind, toggleKind } from './ops';
 import { MIN } from './testUtil';
 
 beforeEach(() => app.set({ events: [] }));
@@ -34,5 +34,29 @@ describe('ops', () => {
   });
   it('stop with nothing running is a no-op with a reason', () => {
     expect(stopKind('drilling')).toMatchObject({ kind: 'noop', reason: 'No drilling is going' });
+  });
+});
+
+describe('classes start on the hour', () => {
+  const t = (h: number, m: number) => new Date(2026, 9, 9, h, m).getTime();
+  it('snaps classes, live within 10 minutes, logged always', () => {
+    expect(classStart(t(19, 4), true)).toBe(t(19, 0));
+    expect(classStart(t(19, 10), true)).toBe(t(19, 0));
+    expect(classStart(t(19, 25), true)).toBe(t(19, 25));
+    expect(classStart(t(19, 10), false)).toBe(t(19, 0));
+    expect(classStart(t(19, 50), false)).toBe(t(19, 0));
+  });
+  it('a class logged after the fact starts on the hour; open mat does not', () => {
+    const r = logKind('class', { at: t(20, 10), detail: { min: 60 } });
+    expect(r.kind === 'logged' && r.event.at).toBe(t(19, 0));
+    expect(r.kind === 'logged' && r.snappedFrom).toBe(t(19, 10));
+    const o = logKind('open-mat', { at: t(20, 10), detail: { min: 60 } });
+    expect(o.kind === 'logged' && o.event.at).toBe(t(19, 10));
+  });
+  it('can be turned off', () => {
+    settings.set({ classOnHour: false });
+    const r = logKind('class', { at: t(20, 10), detail: { min: 60 } });
+    expect(r.kind === 'logged' && r.event.at).toBe(t(19, 10));
+    settings.set({ classOnHour: true });
   });
 });

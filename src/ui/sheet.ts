@@ -1,14 +1,16 @@
-import { POSITIONS, positionLabel, resolvePosition, resolveSub, resolveTechnique, subLabel, SUBMISSIONS, techniqueLabel, TECHNIQUES } from '../core/catalog';
-import { createEvent, isSession, SESSION_KINDS } from '../core/events';
+import { allTechniques, POSITIONS, positionLabel, resolvePosition, resolveSub, resolveTechnique, subLabel, SUBMISSIONS, techniqueLabel, TECHNIQUES } from '../core/catalog';
+import { createEvent, isSession, isTimedType, SESSION_KINDS } from '../core/events';
 import { fromLocalInput, toLocalInput } from '../core/format';
-import { kindById, ongoingSession, type KindId } from '../core/kinds';
+import { kindById, ongoingRoll, ongoingSession, type KindId } from '../core/kinds';
+import { classStart } from '../core/ops';
 import { addEvent, app, deleteEvent, getEvent, revertTo, settings, updateEvent } from '../core/log';
-import { rollStats, techniqueUses } from '../core/stats';
-import { BELTS, type Attire, type Belt, type Detail, type EventType, type LogEvent, type Outcome, type Size } from '../core/types';
+import { rollsIn, rollStats, techniqueUses } from '../core/stats';
+import { BELTS, type Attire, type Belt, type Detail, type EventType, type LogEvent, type Outcome, type PlanFollowed, type Role, type Size } from '../core/types';
 import { companionReact } from './companion';
 import { BELT_LABEL, esc, openDialog, sheetHead } from './dom';
 import { requestPersistence } from './persist';
-import { toast } from './toast';
+import { toast, type ToastAction } from './toast';
+import { openReflect } from './reflectView';
 
 export interface SheetOpts {
   /** Edit this event. */
@@ -42,7 +44,7 @@ let error = '';
 /** True while the sheet's HTML is being replaced: removing a focused input fires blur/change, which must not render again. */
 let rendering = false;
 
-const isTimed = (t: EventType) => t !== 'promotion';
+const isTimed = isTimedType;
 const sessionLike = (t: EventType) => (SESSION_KINDS as readonly string[]).includes(t);
 
 function picks<T extends string>(field: string, options: [T, string][], value: T | undefined, legend: string, extra = ''): string {
@@ -67,7 +69,7 @@ function tags(field: 'techniques' | 'subsFor' | 'subsAgainst' | 'stuck' | 'lande
 
 function datalists(): string {
   const partners = rollStats(app.get().events).partners.map((p) => p.label);
-  return `<datalist id="dl-tech">${TECHNIQUES.map((t) => `<option value="${esc(t.label)}"></option>`).join('')}</datalist>
+  return `<datalist id="dl-tech">${allTechniques().map((t) => `<option value="${esc(t.label)}"></option>`).join('')}</datalist>
     <datalist id="dl-subs">${SUBMISSIONS.map((s) => `<option value="${esc(s.label)}"></option>`).join('')}</datalist>
     <datalist id="dl-pos">${POSITIONS.filter((p) => p.id !== 'submission').map((p) => `<option value="${esc(p.label)}"></option>`).join('')}</datalist>
     <datalist id="dl-partners">${partners.map((p) => `<option value="${esc(p)}"></option>`).join('')}</datalist>`;
@@ -82,7 +84,52 @@ function sessionFields(): string {
     picks('type', kinds, draft.type, 'Session'),
     picks<Attire>('attire', [['gi', 'Gi'], ['nogi', 'No-gi']], d.attire, 'Gi or no-gi'),
     tags('techniques', 'Techniques', techniqueLabel, sug, 'Add a technique…', 'dl-tech'),
+    checkIn(),
+    roundsList(),
   ].join('');
+}
+
+const FACES: [string, string][] = [
+  ['1', '😩'],
+  ['2', '🙁'],
+  ['3', '😐'],
+  ['4', '🙂'],
+  ['5', '😄'],
+];
+
+/** "Am I still enjoying this? Did I follow my plan?": a quick check-in, usually filled in when reflecting. */
+function checkIn(): string {
+  const d = draft.detail;
+  return `<div class="row stack-sm">
+    ${picks('enjoy', FACES, d.enjoy ? String(d.enjoy) : undefined, 'Enjoyed it', 'face')}
+    ${picks<PlanFollowed>('plan', [['yes', 'Yes'], ['partly', 'Partly'], ['no', 'No']], d.plan, 'Followed my plan')}
+  </div>`;
+}
+
+/** The rounds inside a session you're editing, so a whole open mat can be filled in afterwards. */
+function roundsList(): string {
+  if (!existing || !sessionLike(existing.type)) return '';
+  const now = Date.now();
+  const rs = rollsIn(existing, app.get().events, now);
+  const rows = rs
+    .map((r) => {
+      const d = r.detail ?? {};
+      const bits = [d.belt, d.subsFor?.length ? `✓ ${d.subsFor.map(subLabel).join(', ')}` : '', d.subsAgainst?.length ? `✗ ${d.subsAgainst.map(subLabel).join(', ')}` : '', d.outcome].filter(Boolean);
+      return `<li><button type="button" class="chip" data-edit-round="${r.id}">${esc(d.partner ?? 'Round')}${bits.length ? ` · ${esc(bits.join(' · '))}` : ''}</button></li>`;
+    })
+    .join('');
+  return `<div class="field"><span class="field-label">${existing.type === 'comp' ? 'Matches' : 'Rounds'} (${rs.length})</span>
+    <ul class="round-list">${rows}<li><button type="button" class="chip primary" data-add-round>+ Add ${existing.type === 'comp' ? 'a match' : 'a round'}</button></li></ul></div>`;
+}
+
+function studyFields(): string {
+  const d = draft.detail;
+  const recent = techniqueUses(app.get().events).map((u) => [u.id, u.label] as [string, string]);
+  return `<label class="field"><span class="field-label">What you studied</span>
+      <input type="text" data-f="source" value="${esc(d.source ?? '')}" placeholder="an instructional, a coach's video, your notes" maxlength="200" autocomplete="off" /></label>
+    <label class="field"><span class="field-label">Link (optional)</span>
+      <input type="url" data-f="url" value="${esc(d.url ?? '')}" placeholder="https://" autocomplete="off" /></label>
+    ${tags('techniques', 'Techniques', techniqueLabel, recent.length ? recent : TECHNIQUES.slice(0, 8).map((t) => [t.id, t.label] as [string, string]), 'Add a technique…', 'dl-tech')}`;
 }
 
 function rollFields(): string {
@@ -93,10 +140,14 @@ function rollFields(): string {
   // Moves: what you drill and try most, then the catalog's sweeps, passes and takedowns.
   const moveSug = [
     ...techniqueUses(app.get().events).sort((a, b) => b.attempts + b.sessions - (a.attempts + a.sessions)).map((u) => [u.id, u.label] as [string, string]),
-    ...TECHNIQUES.filter((t) => t.kind !== 'submission').map((t) => [t.id, t.label] as [string, string]),
+    ...allTechniques().filter((t) => t.kind !== 'submission').map((t) => [t.id, t.label] as [string, string]),
   ].filter(([id], i, a) => a.findIndex(([x]) => x === id) === i);
   const stuckSug = [...st.stuck.map((c) => [c.id, c.label] as [string, string]), ...POSITIONS.filter((p) => p.id !== 'submission').map((p) => [p.id, p.label] as [string, string])].filter(([id], i, a) => a.findIndex(([x]) => x === id) === i);
-  return `<label class="field"><span class="field-label">Partner</span>
+  const starts = POSITIONS.filter((p) => p.id !== 'submission');
+  return `<div class="row stack-sm"><label class="field"><span class="field-label">Started from (positional round)</span>
+      <select data-f="start"><option value="">Standing / not positional</option>${starts.map((p) => `<option value="${p.id}" ${d.start === p.id ? 'selected' : ''}>${esc(p.label)}</option>`).join('')}</select></label>
+      ${picks<Role>('role', [['bottom', 'Bottom'], ['top', 'Top']], d.role, 'You were')}</div>
+    <label class="field"><span class="field-label">Partner</span>
       <input type="text" data-f="partner" value="${esc(d.partner ?? '')}" list="dl-partners" placeholder="optional" autocomplete="off" maxlength="60" /></label>
     ${picks<Belt>('belt', BELTS.map((b) => [b, `<span class="dot" style="--sw: var(--belt-${b})"></span>${BELT_LABEL[b]}`] as [Belt, string]), d.belt, 'Their belt', 'belt')}
     <div class="row stack-sm">
@@ -130,8 +181,16 @@ function timeFields(): string {
 
 function render(focusTags?: string) {
   const t = draft.type;
-  const title = existing ? `${t === 'promotion' ? '🎖️ Promotion' : `${kindById(t as KindId).emoji} ${kindById(t as KindId).label}`}` : t === 'promotion' ? 'New promotion' : t === 'roll' ? 'New round' : 'New session';
-  const fields = sessionLike(t) ? sessionFields() : t === 'roll' ? rollFields() : promotionFields();
+  const title = existing
+    ? `${t === 'promotion' ? '🎖️ Promotion' : `${kindById(t as KindId).emoji} ${kindById(t as KindId).label}`}`
+    : t === 'promotion'
+      ? 'New promotion'
+      : t === 'roll'
+        ? 'New round'
+        : t === 'study'
+          ? 'New study session'
+          : 'New session';
+  const fields = sessionLike(t) ? sessionFields() : t === 'roll' ? rollFields() : t === 'study' ? studyFields() : promotionFields();
   rendering = true;
   try {
     dialog().innerHTML = `<form novalidate>${sheetHead('sheet-title', title)}<div class="sheet-body">
@@ -143,6 +202,7 @@ function render(focusTags?: string) {
     ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ''}
     <div class="actions">
       ${existing ? '<button type="button" class="btn danger" data-delete>Delete</button>' : ''}
+      ${existing && sessionLike(existing.type) && !draft.running ? `<button type="button" class="btn" data-reflect-session>📓 ${existing.detail?.reflectedAt ? 'Reflect again' : 'Reflect'}</button>` : ''}
       <span class="spacer"></span>
       <button type="button" class="btn" data-close>Cancel</button>
       <button type="submit" class="btn primary">Save</button>
@@ -181,14 +241,32 @@ function wire() {
   if (d.dataset.sheetWired) return;
   d.dataset.sheetWired = '1';
   d.addEventListener('click', (e) => {
-    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-pick], [data-tag], [data-untag], [data-delete]');
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-pick], [data-tag], [data-untag], [data-delete], [data-add-round], [data-edit-round], [data-reflect-session]');
     if (!el) return;
     if (el.dataset.delete !== undefined) return remove();
+    if (el.dataset.reflectSession !== undefined) {
+      const id = existing!.id;
+      if (!save({ quiet: true })) return;
+      return openReflect(getEvent(id)!);
+    }
+    // Switching to a round saves the session first, so nothing typed here is lost.
+    if (el.dataset.addRound !== undefined || el.dataset.editRound) {
+      const session = existing!;
+      const round = el.dataset.editRound;
+      if (!save({ quiet: true })) return;
+      const s = getEvent(session.id)!;
+      if (round) return openSheet({ event: getEvent(round)! });
+      const inside = rollsIn(s, app.get().events, Date.now());
+      const last = inside[inside.length - 1];
+      const start = last ? (last.endAt ?? last.at + (last.detail?.min ?? 6) * MIN) + MIN : s.at + 5 * MIN;
+      return openSheet({ type: 'roll', at: start, intro: `${s.type === 'comp' ? 'A match' : 'A round'} in ${kindById(s.type as KindId).label.toLowerCase()}.` });
+    }
     if (el.dataset.pick) {
       const field = el.dataset.pick;
       const v = el.dataset.value!;
       if (field === 'type') draft.type = v as EventType;
       else if (field === 'stripes') draft.detail.stripes = Number(v);
+      else if (field === 'enjoy') draft.detail.enjoy = draft.detail.enjoy === Number(v) ? undefined : Number(v);
       else {
         const rec = draft.detail as Record<string, unknown>;
         rec[field] = rec[field] === v ? undefined : v;
@@ -204,6 +282,9 @@ function wire() {
     const el = e.target as HTMLInputElement;
     const f = el.dataset.f;
     if (f === 'partner') draft.detail.partner = el.value;
+    else if (f === 'source') draft.detail.source = el.value;
+    else if (f === 'url') draft.detail.url = el.value;
+    else if (f === 'start') draft.detail.start = el.value || undefined;
     else if (f === 'note') draft.detail.note = el.value;
     else if (f === 'at') draft.at = el.value;
     else if (f === 'date') draft.at = `${el.value}T12:00`;
@@ -250,12 +331,15 @@ function remove() {
   toast('Deleted', { actions: [{ label: 'Undo', primary: true, run: () => revertTo(prev) }] });
 }
 
-function save() {
+function save(opts: { quiet?: boolean } = {}): boolean {
   flushTagInputs();
   const at = fromLocalInput(draft.at);
   if (at === null) {
     error = 'Pick a start time.';
-    return render();
+    {
+      render();
+      return false;
+    }
   }
   const now = Date.now();
   const detail: Detail = { ...draft.detail };
@@ -265,38 +349,60 @@ function save() {
     if (draft.running) {
       if (at > now + MIN) {
         error = "A running session can't start in the future.";
-        return render();
+        {
+      render();
+      return false;
+    }
       }
       const other = ongoingSession(app.get().events);
       if (sessionLike(draft.type) && other && other.id !== existing?.id) {
         error = `${kindById(other.type as KindId).label} is already running. Stop it first, or untick "Still going".`;
-        return render();
+        {
+      render();
+      return false;
+    }
       }
     } else {
       const len = Math.round(Number(draft.len));
       if (!(len >= 1 && len <= 600)) {
         error = 'Length is 1–600 minutes.';
-        return render();
+        {
+      render();
+      return false;
+    }
       }
       endAt = at + len * MIN;
     }
   } else if (!detail.belt) {
     error = 'Pick a belt.';
-    return render();
+    {
+      render();
+      return false;
+    }
   }
   requestPersistence();
   if (existing) {
     const prev = existing;
     updateEvent(prev.id, { type: draft.type, at, endAt, detail });
-    toast('Saved', { actions: [{ label: 'Undo', primary: true, run: () => revertTo(prev) }] });
+    const next: ToastAction[] = prev.type === 'roll' && ongoingSession(app.get().events) && !ongoingRoll(app.get().events) ? [{ label: 'Next round', run: () => nextRound() }] : [];
+    if (!opts.quiet) toast('Saved', { actions: [{ label: 'Undo', primary: true, run: () => revertTo(prev) }, ...next] });
   } else {
     const e = addEvent(createEvent(draft.type, at, detail, now, endAt));
     if (draft.type === 'promotion' || detail.landed?.length) companionReact('cheer');
     else if (detail.subsAgainst?.length) companionReact('tap');
     else if (detail.subsFor?.length) companionReact('cheer');
-    toast(`${draft.type === 'promotion' ? '🎖️ Promotion' : kindById(draft.type as KindId).label} saved`, { actions: [{ label: 'Undo', primary: true, run: () => deleteEvent(e.id) }] });
+    // During a session, the next round is one tap away.
+    const next: ToastAction[] = draft.type === 'roll' && ongoingSession(app.get().events) && !ongoingRoll(app.get().events) ? [{ label: 'Next round', run: () => nextRound() }] : [];
+    toast(`${draft.type === 'promotion' ? '🎖️ Promotion' : kindById(draft.type as KindId).label} saved`, { actions: [{ label: 'Undo', primary: true, run: () => deleteEvent(e.id) }, ...next] });
   }
   dialog().close();
+  return true;
+}
+
+let nextRound = () => {};
+/** Set by the app (ui/actions.ts) so the sheet can start a round without importing the action layer. */
+export function onNextRound(fn: () => void) {
+  nextRound = fn;
 }
 
 export function openSheet(opts: SheetOpts) {
@@ -318,10 +424,12 @@ export function openSheet(opts: SheetOpts) {
     };
   } else {
     const type = opts.type ?? 'class';
-    const def = type === 'promotion' ? 0 : type === 'roll' ? kindById('roll').defaultMin : settings.get().defaultMin;
+    const def = type === 'promotion' ? 0 : type === 'roll' || type === 'study' ? kindById(type).defaultMin : settings.get().defaultMin;
+    let at = opts.at ?? (opts.running ? now : now - def * MIN);
+    if (opts.at === undefined && type === 'class' && !opts.running && settings.get().classOnHour) at = classStart(at, false);
     draft = {
       type,
-      at: toLocalInput(opts.at ?? (opts.running ? now : now - def * MIN)),
+      at: toLocalInput(at),
       len: String(def),
       running: !!opts.running,
       detail: { ...(opts.detail ?? {}) },

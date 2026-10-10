@@ -178,14 +178,39 @@ export function resolveSub(text: string): string {
 }
 export const subLabel = (id: string) => SUBMISSIONS.find((s) => s.id === id)?.label ?? id;
 
+// ---------- Your own techniques ----------
+
+/**
+ * Techniques you add yourself (Technique library → Add technique). They live in the log as
+ * `technique` events, so they back up and merge; the app keeps this list in step with the log
+ * (`setCustomTechniques`), and every lookup below sees them. A custom technique's id is the text it
+ * was first typed as, so entries logged before it was defined link up on their own.
+ */
+let custom: Technique[] = [];
+export function setCustomTechniques(list: Technique[]) {
+  custom = list;
+}
+export const customTechniques = () => custom;
+export const allTechniques = () => (custom.length ? [...TECHNIQUES, ...custom] : TECHNIQUES);
+export const isCustom = (id: string) => custom.some((t) => t.id === id);
+
+export const TECH_KINDS: { id: TechKind; label: string }[] = [
+  { id: 'takedown', label: 'Takedown' },
+  { id: 'sweep', label: 'Sweep' },
+  { id: 'pass', label: 'Pass' },
+  { id: 'transition', label: 'Transition' },
+  { id: 'escape', label: 'Escape' },
+  { id: 'submission', label: 'Submission' },
+];
+
 /** Resolves typed text to a technique id, or keeps it as free text. */
 export function resolveTechnique(text: string): string {
   const n = norm(text);
   if (!n) return '';
-  const hit = TECHNIQUES.find((x) => x.id === n || norm(x.id) === n || norm(x.label) === n || x.aka?.some((a) => norm(a) === n));
+  const hit = allTechniques().find((x) => x.id === n || norm(x.id) === n || norm(x.label) === n || x.aka?.some((a) => norm(a) === n));
   return hit?.id ?? text.trim();
 }
-export const techniqueById = (id: string) => TECHNIQUES.find((x) => x.id === id);
+export const techniqueById = (id: string) => TECHNIQUES.find((x) => x.id === id) ?? custom.find((x) => x.id === id);
 export const techniqueLabel = (id: string) => techniqueById(id)?.label ?? id;
 
 /** Resolves typed text to a position id ("half guard bottom" → half-guard), or keeps it. */

@@ -50,10 +50,13 @@ export function mountCards(el: HTMLElement) {
 
 export function renderCards(el: HTMLElement, now: number) {
   const { events } = app.get();
+  const hidden = settings.get().hiddenCards;
   for (const k of KINDS) {
     const b = el.querySelector<HTMLElement>(`[data-card="${k.id}"]`);
     if (!b) continue;
     const on = ongoingFor(events, k.id);
+    // A hidden card still shows while it's running, so it can be stopped.
+    b.hidden = hidden.includes(k.id) && !on;
     b.classList.toggle('running', !!on);
     const sub = b.querySelector('.sub')!;
     let text: string;
@@ -106,8 +109,11 @@ function sessionItem(s: LogEvent, events: LogEvent[], now: number): string {
   const k = kindById(s.type as KindId);
   const d = s.detail ?? {};
   const running = s.endAt === undefined && !d.min;
-  const rs = rollsIn(s, events, now);
+  const rs = s.type === 'study' ? [] : rollsIn(s, events, now);
   const meta: string[] = [];
+  if (d.source) meta.push(esc(d.source));
+  if (d.enjoy) meta.push(['😩', '🙁', '😐', '🙂', '😄'][d.enjoy - 1]);
+  if (d.reflectedAt) meta.push('📓');
   if (d.attire) meta.push(d.attire === 'gi' ? 'Gi' : 'No-gi');
   if (d.techniques?.length) meta.push(esc(d.techniques.map(techniqueLabel).join(', ')));
   if (rs.length) meta.push(plural(rs.length, 'round'));
@@ -129,7 +135,7 @@ export function renderRecent(now: number) {
   const live = events.filter((e) => !e.deleted && e.at <= now + MIN);
   const cutoff = dayStart(addDays(dayKey(now), -14));
   const sorted = [...live].sort((a, b) => b.at - a.at);
-  const sessions = sorted.filter(isSession);
+  const sessions = sorted.filter((e) => isSession(e) || e.type === 'study');
   const shown = sessions.filter((s, i) => i < 5 || s.at >= cutoff).slice(0, 40);
   const oldest = shown.at(-1)?.at ?? now;
   const inSession = new Set(shown.flatMap((s) => rollsIn(s, events, now).map((r) => r.id)));

@@ -61,3 +61,10 @@ describe('backup', () => {
     expect(() => parseBackup('{"app":"matlog","version":2}')).toThrow(/newer/);
   });
 });
+
+describe('backup carries your name', () => {
+  it('writes it only when set, and reads it back', () => {
+    expect(toBackup({ events: [] }, 1, '  ')).not.toHaveProperty('name');
+    expect(parseBackup(JSON.stringify(toBackup({ events: [] }, 1, 'Sam')))).toMatchObject({ name: 'Sam' });
+  });
+});

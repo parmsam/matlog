@@ -2,7 +2,8 @@ import { expect, open, test } from './helpers';
 import { RECIPES } from '../src/ui/agentApi';
 
 test('window.matlog: help, logging, state, markdown round trip', async ({ page }) => {
-  await open(page);
+  // Exact times: the round 30 minutes ago belongs to the class.
+  await open(page, { settings: { classOnHour: false } });
   const help = await page.evaluate(() => window.matlog.help());
   expect(help).toContain('matlog.log(type, opts?)');
   const r = await page.evaluate(() => window.matlog.log('class', { min: 90, gi: 'gi', techniques: ['knee cut'] }));

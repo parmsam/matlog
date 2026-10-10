@@ -33,7 +33,7 @@ export async function open(page: Page, seed: Seed = {}, path = './') {
       const r = indexedDB.deleteDatabase('matlog');
       r.onsuccess = r.onerror = r.onblocked = () => res(null);
     });
-    localStorage.setItem('matlog:v1:settings', JSON.stringify({ theme: 'nogi', splash: false, ...seed.settings }));
+    localStorage.setItem('matlog:v1:settings', JSON.stringify({ theme: 'nogi', splash: false, reflectAfter: -1, tipsSeen: ['welcome', 'install', 'install-android', 'focus', 'reflect', 'clock', 'paste', 'links'], ...seed.settings }));
     const events = seed.events ?? [];
     if (seed.mirrorOnly) {
       localStorage.setItem('matlog:v1:mirror', JSON.stringify({ events }));
