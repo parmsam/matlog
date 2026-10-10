@@ -780,6 +780,26 @@ dialog .toasts {
   color: var(--accent-ink);
   border-color: transparent;
 }
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.stepper .pick {
+  min-width: 44px;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.stepper .pick:disabled {
+  opacity: 0.4;
+}
+.stepper output {
+  min-width: 2ch;
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
 .pick.belt {
   display: inline-flex;
   align-items: center;

@@ -3,8 +3,9 @@ import { runningFocuses } from '../core/focus';
 import { kindById, ongoingFor, ongoingSession, type KindId } from '../core/kinds';
 import { app, deleteEvent, getEvent, revertTo, settings, updateEvent } from '../core/log';
 import { startKind, toggleKind, type OpResult } from '../core/ops';
-import { matMinutes, unlockedPatches } from '../core/stats';
-import type { LogEvent } from '../core/types';
+import { matMinutes, nextRoundSetup, unlockedPatches } from '../core/stats';
+import { positionLabel } from '../core/catalog';
+import type { Detail, LogEvent } from '../core/types';
 import { companionReact } from './companion';
 import { requestPersistence } from './persist';
 import { lastAttire, onNextRound, openSheet } from './sheet';
@@ -83,7 +84,10 @@ export function present(r: OpResult, opts: { prefix?: string; before?: number } 
       if (r.what !== 'roll') companionReact('tie');
       const session = r.what !== 'roll' && r.what !== 'study';
       const focus = session ? focusLine(Date.now()) : '';
-      const label = (ts: number) => `${prefix}${def.emoji} ${def.label} started · ${t(ts)}${focus}`;
+      // A round that carried over its situation says so, so a stale one is easy to spot and change.
+      const d = r.event.detail;
+      const situation = r.what === 'roll' && (d?.start || d?.goal) ? ` · ${[d.start ? `${positionLabel(d.start)}${d.role ? ` ${d.role}` : ''}` : '', d.goal ?? ''].filter(Boolean).join(', ')}` : '';
+      const label = (ts: number) => `${prefix}${def.emoji} ${def.label} started · ${t(ts)}${situation}${focus}`;
       // Rounds mostly happen at open mat: a round with nothing running offers to start one, so the rounds have a home.
       const openMat: ToastAction[] =
         r.what === 'roll' && !ongoingSession(app.get().events)
@@ -149,13 +153,24 @@ export function present(r: OpResult, opts: { prefix?: string; before?: number } 
   }
 }
 
-/** Tap on a card: start or stop it now. New sessions remember gi or no-gi from last time. */
+/**
+ * Tap on a card: start or stop it now. New sessions remember gi or no-gi from last time. With
+ * "cards log past sessions" on, a tap opens one you already did instead; a running one still stops.
+ */
 export function tapKind(id: KindId, now = Date.now()) {
   requestPersistence();
   const before = matMinutes(app.get().events, now);
   const running = ongoingFor(app.get().events, id);
+  if (!running && settings.get().cardsLogPast) return holdKind(id);
   const attire = id !== 'roll' && id !== 'study' && !running ? lastAttire() : undefined;
-  present(toggleKind(id, { at: now, detail: attire ? { attire } : undefined }), { before });
+  const setup = id === 'roll' && !running ? roundSetup(now) : undefined;
+  present(toggleKind(id, { at: now, detail: attire ? { attire } : setup }), { before });
+}
+
+/** The running session's last round setup (start, side, goal), for the next round; undefined if none. */
+export function roundSetup(now = Date.now()): Detail | undefined {
+  const d = nextRoundSetup(ongoingSession(app.get().events), app.get().events, now);
+  return Object.keys(d).length ? d : undefined;
 }
 
 /** Long press: straight to the sheet. A running one opens for editing; otherwise a finished entry to fill in. */
@@ -163,8 +178,8 @@ export function holdKind(id: KindId) {
   const on = ongoingFor(app.get().events, id);
   if (on) return openSheet({ event: on });
   const attire = id !== 'roll' && id !== 'study' ? lastAttire() : undefined;
-  openSheet({ type: id, detail: attire ? { attire } : undefined });
+  openSheet({ type: id, detail: attire ? { attire } : id === 'roll' ? roundSetup() : undefined });
 }
 
 // "Next round" in a saved round's toast starts the next one, through the same path as a tap.
-onNextRound(() => present(startKind('roll'), { prefix: '' }));
+onNextRound(() => present(startKind('roll', { detail: roundSetup() }), { prefix: '' }));

@@ -17,6 +17,7 @@ Open the app with a `do` query parameter to log something. The parameters are re
 - Rounds only (a round belongs to whatever session it happens in: class, open mat, drilling or comp; one logged while a session runs is linked to it): `&partner=Sam&belt=white|blue|purple|brown|black&size=smaller|similar|bigger&sub=armbar,rnc&tapped=triangle&stuck=half guard&outcome=win|loss|draw`
 - Moves in a round: `&landed=knee cut,scissor sweep` (you landed them) and `&tried=berimbolo` (you went for it, it didn't land)
 - Positional rounds: `&from=side control&role=bottom|top`
+- Situational rounds: `&goal=escape or sweep&got=2&theygot=1&went=framed early and got out` (got and theygot count how many times each side got their goal)
 - Sessions: `&enjoy=1..5&plan=yes|partly|no` (a check-in)
 - Study (not mat time): `?do=log&type=study&min=10&source=Half guard series`
 - `&note=…` on anything
@@ -32,13 +33,13 @@ When you control the page (Playwright `page.evaluate`, DevTools, a browser agent
 
 - `matlog.help()`: this reference as text
 - `matlog.state()`: `{ name, now, rank: { belt, stripes }, promotions, matHours, sessions, running: [{ type, since, minutes }], workingOn, last7Days: { sessions, minutes, rounds, subsFor, subsAgainst, techniques } }`
-- `matlog.log(type, opts?)`, `matlog.start(type, opts?)`, `matlog.stop(type, opts?)`, `matlog.toggle(type, opts?)`: opts are `{ min, minutesAgo, gi, techniques, partner, belt, size, subs, tapped, landed, tried, stuck, outcome, note }` (lists as an array or comma text). Returns `{ result: 'logged' | 'started' | 'stopped' | 'switched', entry }` or `{ result: 'nothing-to-do', reason }`
+- `matlog.log(type, opts?)`, `matlog.start(type, opts?)`, `matlog.stop(type, opts?)`, `matlog.toggle(type, opts?)`: opts are `{ min, minutesAgo, gi, techniques, partner, belt, size, subs, tapped, landed, tried, stuck, outcome, from, role, goal, got, theyGot, howItWent, note }` (lists as an array or comma text). Returns `{ result: 'logged' | 'started' | 'stopped' | 'switched', entry }` or `{ result: 'nothing-to-do', reason }`
 - `matlog.entries(days = 7)`: sessions, rounds and promotions from the last N days
 - `matlog.undo()`: undo the last change made in the app (within 5 minutes)
 - `matlog.markdown(days = 7)`: the last N days as Markdown (the same format the Paste dialog reads)
 - `matlog.importMarkdown(text)`: log a class note; returns `{ sessions, rounds, ids }`
 - `matlog.parseMarkdown(text)`: what importMarkdown would log, without logging
-- `matlog.stats()`: subs hit and tapped to, ratio, stuck positions, partners, by partner belt
+- `matlog.stats()`: subs hit and tapped to, ratio, stuck positions, partners, by partner belt, and `situations` (situational rounds by start: rounds, got, theyGot)
 - `matlog.techniques()`: each technique with sessions drilled, `landed` and `attempts` in rounds, last used, and from → to positions
 - `matlog.patterns()`: plain descriptions, each with what it's based on
 - `matlog.focus(text?, opts?)`: focuses, running first, each with `{ text, role, state: 'active'|'over'|'resting'|'done', week, weeks, blocks, ifWorks, ifFails, tracking, thisBlock }`. With text, adds one: opts `{ role: 'main'|'complement'|'habit'|'experiment'|'side', blockDays: 7|14, ifWorks, ifFails, target }`. Only add one when the person asks
@@ -67,6 +68,10 @@ Paste this into the app (Paste a note, or `matlog.importMarkdown(text)`); export
 ### Rounds
 - Sam (purple, bigger)
   - Started from: half guard bottom
+  - Goal: sweep or come up
+  - Got it: 2
+  - They got it: 1
+  - How it went: came up twice once I got the underhook
   - Hit: armbar
   - Tapped to: triangle
   - Landed: knee cut
@@ -89,6 +94,7 @@ Anything else, as free text.
 - Session details are bullets: Date (YYYY-MM-DD HH:MM), Length (90m, 1h30), Gi (gi or no-gi), Topic, Enjoyed (1–5), Followed my plan (yes, partly, no). Study also takes Source.
 - `### Techniques`: one technique per bullet. Sub-bullets add notes to it: Key detail, Observation, Question, Source (a link in brackets works).
 - `### Rounds` (or Rolls, Matches): one partner per bullet, with belt, size and length in brackets. Sub-bullets: Started from (a position, then top or bottom), Hit, Tapped to, Landed, Went for, Stuck, Result (win, draw, loss), Note. Lists are comma-separated.
+- Situational rounds add Goal (the rule, e.g. sweep or come up), Got it and They got it (how many times each side got their goal; the round can reset and go again), and How it went (a sentence or two).
 - `### Problems`: one problem per bullet, `(solved)` at the end if it is. Sub-bullet: Idea.
 - `### Injuries`: one per bullet, like `Left knee (minor)`. Sub-bullets: How, Training around it.
 - `### Notes`: free text. Anything matlog doesn’t recognise also ends up in the note.
@@ -113,6 +119,8 @@ To turn a voice memo or quick notes into a class note with a chat assistant, giv
   `matlog.problems('getting flattened in half guard', { source: 'internal' })`; `matlog.solve(id)` once it's solved.
 - I tweaked my left knee at open mat
   `matlog.injuries('left knee', { severity: 'minor', how: 'open mat', around: 'no leg locks' })`; `matlog.heal(id)` later. Report what was logged; never give medical advice.
+- Situational round from side control bottom, escape or sweep: got out twice, got pinned once
+  `matlog.log('roll', { from: 'side control', role: 'bottom', goal: 'escape or sweep', got: 2, theyGot: 1 })`. `matlog.stats().situations` totals them by start.
 - How many mat hours do I have?
   `matlog.state().matHours`.
 - What do I get stuck in, and what do I tap to?

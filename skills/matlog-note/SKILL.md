@@ -24,6 +24,10 @@ matlog (https://parmsam.github.io/matlog/) is a local-only BJJ training journal.
 ### Rounds
 - Sam (purple, bigger)
   - Started from: half guard bottom
+  - Goal: sweep or come up
+  - Got it: 2
+  - They got it: 1
+  - How it went: came up twice once I got the underhook
   - Hit: armbar
   - Tapped to: triangle
   - Landed: knee cut
@@ -46,6 +50,7 @@ Anything else, as free text.
 - Session details are bullets: Date (YYYY-MM-DD HH:MM), Length (90m, 1h30), Gi (gi or no-gi), Topic, Enjoyed (1–5), Followed my plan (yes, partly, no). Study also takes Source.
 - `### Techniques`: one technique per bullet. Sub-bullets add notes to it: Key detail, Observation, Question, Source (a link in brackets works).
 - `### Rounds` (or Rolls, Matches): one partner per bullet, with belt, size and length in brackets. Sub-bullets: Started from (a position, then top or bottom), Hit, Tapped to, Landed, Went for, Stuck, Result (win, draw, loss), Note. Lists are comma-separated.
+- Situational rounds add Goal (the rule, e.g. sweep or come up), Got it and They got it (how many times each side got their goal; the round can reset and go again), and How it went (a sentence or two).
 - `### Problems`: one problem per bullet, `(solved)` at the end if it is. Sub-bullet: Idea.
 - `### Injuries`: one per bullet, like `Left knee (minor)`. Sub-bullets: How, Training around it.
 - `### Notes`: free text. Anything matlog doesn’t recognise also ends up in the note.

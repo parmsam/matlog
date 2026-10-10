@@ -3,7 +3,7 @@ import { kindById, ongoingRoll, ongoingSession, type KindId } from '../core/kind
 import { app, settings } from '../core/log';
 import { startKind, stopKind } from '../core/ops';
 import { rollsIn } from '../core/stats';
-import { present } from './actions';
+import { present, roundSetup } from './actions';
 import { closeBtn } from './dom';
 
 /**
@@ -97,7 +97,7 @@ export function openClock() {
       const ds = b.dataset;
       const now = Date.now();
       if (ds.close !== undefined) return d.close();
-      if (ds.start !== undefined) present(startKind('roll', { at: now }), { prefix: '⏱️ ' });
+      if (ds.start !== undefined) present(startKind('roll', { at: now, detail: roundSetup(now) }), { prefix: '⏱️ ' });
       else if (ds.end !== undefined) present(stopKind('roll', { at: now }), { prefix: '⏱️ ' });
       else if (ds.openMat !== undefined) present(startKind('open-mat', { at: now }));
       else if (ds.round) settings.set({ roundMin: Math.max(1, Math.min(20, settings.get().roundMin + Number(ds.round))), roundMinSet: true });

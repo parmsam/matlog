@@ -4,7 +4,7 @@ import { fromLocalInput, toLocalInput } from '../core/format';
 import { kindById, ongoingRoll, ongoingSession, type KindId } from '../core/kinds';
 import { classStart } from '../core/ops';
 import { addEvent, app, deleteEvent, getEvent, revertTo, settings, updateEvent } from '../core/log';
-import { rollsIn, rollStats, techniqueUses } from '../core/stats';
+import { nextRoundSetup, rollsIn, rollStats, techniqueUses } from '../core/stats';
 import { BELTS, type Attire, type Belt, type Detail, type EventType, type LogEvent, type Outcome, type PlanFollowed, type Role, type Size } from '../core/types';
 import { companionReact } from './companion';
 import { BELT_LABEL, esc, openDialog, sheetHead } from './dom';
@@ -69,13 +69,24 @@ function tags(field: 'techniques' | 'subsFor' | 'subsAgainst' | 'stuck' | 'lande
     ${sug ? `<div class="suggest">${sug}</div>` : ''}</div>`;
 }
 
+/** A count you tap up and down: how many times you (or they) got the goal in a situational round. */
+function counter(field: 'goalsFor' | 'goalsAgainst', legend: string): string {
+  const v = draft.detail[field] ?? 0;
+  return `<div class="field"><span class="field-label" id="lbl-${field}">${legend}</span><div class="stepper" role="group" aria-labelledby="lbl-${field}">
+    <button type="button" class="pick" data-step="${field}" data-value="-1" aria-label="One fewer" ${v ? '' : 'disabled'}>−</button>
+    <output aria-live="polite">${v}</output>
+    <button type="button" class="pick" data-step="${field}" data-value="1" aria-label="One more">+</button></div></div>`;
+}
+
 function datalists(): string {
   const partners = rollStats(app.get().events).partners.map((p) => p.label);
+  const goals = [...new Set(app.get().events.filter((e) => !e.deleted && e.type === 'roll' && e.detail?.goal?.trim()).sort((a, b) => b.at - a.at).map((e) => e.detail!.goal!.trim()))].slice(0, 30);
   return `<datalist id="dl-tech">${visibleTechniques().map((t) => `<option value="${esc(t.label)}"></option>`).join('')}</datalist>
     <datalist id="dl-subs">${SUBMISSIONS.map((s) => `<option value="${esc(s.label)}"></option>`).join('')}</datalist>
     <datalist id="dl-pos">${POSITIONS.filter((p) => p.id !== 'submission').map((p) => `<option value="${esc(p.label)}"></option>`).join('')}</datalist>
     <datalist id="dl-topics">${[...new Set([...app.get().events.filter((e) => !e.deleted && e.detail?.topic).sort((a, b) => b.at - a.at).map((e) => e.detail!.topic!), ...POSITIONS.filter((p) => p.id !== 'submission').map((p) => p.label), ...visibleTechniques().map((t) => t.label)])].slice(0, 120).map((t) => `<option value="${esc(t)}"></option>`).join('')}</datalist>
-    <datalist id="dl-partners">${partners.map((p) => `<option value="${esc(p)}"></option>`).join('')}</datalist>`;
+    <datalist id="dl-partners">${partners.map((p) => `<option value="${esc(p)}"></option>`).join('')}</datalist>
+    <datalist id="dl-goals">${goals.map((g) => `<option value="${esc(g)}"></option>`).join('')}</datalist>`;
 }
 
 /** Is this round a match in a comp? Then its result matters more than usual. */
@@ -137,7 +148,8 @@ function roundsList(): string {
   const rows = rs
     .map((r) => {
       const d = r.detail ?? {};
-      const bits = [d.belt, d.subsFor?.length ? `✓ ${d.subsFor.map(subLabel).join(', ')}` : '', d.subsAgainst?.length ? `✗ ${d.subsAgainst.map(subLabel).join(', ')}` : '', d.outcome].filter(Boolean);
+      const score = d.goalsFor !== undefined || d.goalsAgainst !== undefined ? `goal ${d.goalsFor ?? 0}–${d.goalsAgainst ?? 0}` : '';
+      const bits = [d.belt, d.subsFor?.length ? `✓ ${d.subsFor.map(subLabel).join(', ')}` : '', d.subsAgainst?.length ? `✗ ${d.subsAgainst.map(subLabel).join(', ')}` : '', score, d.outcome].filter(Boolean);
       return `<li><button type="button" class="chip" data-edit-round="${r.id}">${esc(d.partner ?? 'Round')}${bits.length ? ` · ${esc(bits.join(' · '))}` : ''}</button></li>`;
     })
     .join('');
@@ -172,6 +184,10 @@ function rollFields(): string {
   const positions = `<div class="row stack-sm"><label class="field"><span class="field-label">Started from</span>
       <select data-f="start"><option value="">Standing / not positional</option>${starts.map((p) => `<option value="${p.id}" ${d.start === p.id ? 'selected' : ''}>${esc(p.label)}</option>`).join('')}</select></label>
       ${picks<Role>('role', [['bottom', 'Bottom'], ['top', 'Top']], d.role, 'You were')}</div>
+    <label class="field"><span class="field-label">Goal or rules</span>
+      <input type="text" data-f="goal" value="${esc(d.goal ?? '')}" list="dl-goals" maxlength="120" autocomplete="off" placeholder="e.g. bottom escapes or sweeps, top passes or subs" /></label>
+    <div class="row">${counter('goalsFor', 'You got yours')}${counter('goalsAgainst', 'They got theirs')}</div>
+    <label class="field"><span class="field-label">How it went</span><textarea data-f="goalNote" rows="2" maxlength="500" placeholder="e.g. got out twice once I framed early, got flattened when tired">${esc(d.goalNote ?? '')}</textarea></label>
     ${tags('stuck', 'Where you got stuck', positionLabel, stuckSug, 'Add a position…', 'dl-pos')}`;
   const moves = `${tags('landed', 'Landed', techniqueLabel, moveSug, 'A sweep, pass, takedown…', 'dl-tech')}
     ${tags('tried', 'Went for, didn’t land', techniqueLabel, moveSug, 'A move…', 'dl-tech')}`;
@@ -185,7 +201,7 @@ function rollFields(): string {
     ${tags('subsFor', 'Subs you hit', subLabel, subSug(st.forBy), 'Add a submission…', 'dl-subs')}
     ${tags('subsAgainst', 'Tapped to', subLabel, subSug(st.againstBy), 'Add a submission…', 'dl-subs')}
     ${section('moves', 'Moves: landed, went for', n(d.landed, d.tried), moves)}
-    ${section('positions', 'Positions: where it started, where you got stuck', n(d.start, d.stuck), positions)}
+    ${section('positions', 'Situation: where it started, goal, how it went', n(d.start, d.goal?.trim(), d.goalsFor !== undefined || d.goalsAgainst !== undefined, d.goalNote?.trim(), d.stuck), positions)}
     ${section('more', inComp ? 'Result, time and note' : 'Time and note', n(d.outcome, d.note?.trim()), more)}`;
 }
 
@@ -279,7 +295,7 @@ function wire() {
   if (d.dataset.sheetWired) return;
   d.dataset.sheetWired = '1';
   d.addEventListener('click', (e) => {
-    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-pick], [data-tag], [data-untag], [data-delete], [data-add-round], [data-edit-round], [data-reflect-session], [data-hurt]');
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-pick], [data-step], [data-tag], [data-untag], [data-delete], [data-add-round], [data-edit-round], [data-reflect-session], [data-hurt]');
     if (!el) return;
     if (el.dataset.hurt !== undefined) {
       // Opens on top of this sheet, prefilled with when and where; closing it comes back here.
@@ -304,7 +320,15 @@ function wire() {
       const inside = rollsIn(s, app.get().events, Date.now());
       const last = inside[inside.length - 1];
       const start = last ? (last.endAt ?? last.at + (last.detail?.min ?? settings.get().roundMin) * MIN) + MIN : s.at + 5 * MIN;
-      return openSheet({ type: 'roll', at: start, detail: { sessionId: s.id }, intro: `${s.type === 'comp' ? 'A match' : 'A round'} in ${kindById(s.type as KindId).label.toLowerCase()}.` });
+      return openSheet({ type: 'roll', at: start, detail: { ...nextRoundSetup(s, app.get().events, Date.now()), sessionId: s.id }, intro: `${s.type === 'comp' ? 'A match' : 'A round'} in ${kindById(s.type as KindId).label.toLowerCase()}.` });
+    }
+    if (el.dataset.step) {
+      const f = el.dataset.step as 'goalsFor' | 'goalsAgainst';
+      draft.detail[f] = Math.min(99, Math.max(0, (draft.detail[f] ?? 0) + Number(el.dataset.value)));
+      render();
+      // Keep focus on the button, so tapping or pressing Space again keeps counting.
+      const again = dialog().querySelector<HTMLButtonElement>(`[data-step="${f}"][data-value="${el.dataset.value}"]`);
+      return (again && !again.disabled ? again : dialog().querySelector<HTMLButtonElement>(`[data-step="${f}"][data-value="1"]`))?.focus();
     }
     if (el.dataset.pick) {
       const field = el.dataset.pick;
@@ -331,6 +355,8 @@ function wire() {
     else if (f === 'topic') draft.detail.topic = el.value;
     else if (f === 'url') draft.detail.url = el.value;
     else if (f === 'start') draft.detail.start = el.value || undefined;
+    else if (f === 'goal') draft.detail.goal = el.value;
+    else if (f === 'goalNote') draft.detail.goalNote = el.value;
     else if (f === 'note') draft.detail.note = el.value;
     else if (f === 'at') draft.at = el.value;
     else if (f === 'date') draft.at = `${el.value}T12:00`;
@@ -409,6 +435,10 @@ function save(opts: { quiet?: boolean } = {}): boolean {
   const now = Date.now();
   const detail: Detail = { ...draft.detail };
   delete detail.min;
+  for (const k of ['goal', 'goalNote'] as const) {
+    detail[k] = detail[k]?.trim() || undefined;
+    if (detail[k] === undefined) delete detail[k];
+  }
   let endAt: number | undefined;
   if (isTimed(draft.type)) {
     if (draft.running) {
@@ -457,7 +487,7 @@ function save(opts: { quiet?: boolean } = {}): boolean {
     const e = addEvent(createEvent(draft.type, at, detail, now, endAt));
     if (draft.type === 'promotion' || detail.landed?.length) companionReact('cheer');
     else if (detail.subsAgainst?.length) companionReact('tap');
-    else if (detail.subsFor?.length) companionReact('cheer');
+    else if (detail.subsFor?.length || detail.goalsFor) companionReact('cheer');
     // During a session, the next round is one tap away.
     const next: ToastAction[] = draft.type === 'roll' && ongoingSession(app.get().events) && !ongoingRoll(app.get().events) ? [{ label: 'Next round', run: () => nextRound() }] : [];
     toast(`${draft.type === 'promotion' ? '🎖️ Promotion' : kindById(draft.type as KindId).label} saved`, { actions: [{ label: 'Undo', primary: true, run: () => deleteEvent(e.id) }, ...next] });
@@ -480,6 +510,8 @@ export function openSheet(opts: SheetOpts) {
   intro = opts.intro ?? '';
   existing = opts.event ? getEvent(opts.event.id) ?? opts.event : undefined;
   if (existing?.type === 'roll' && inCompSession(existing)) openSections.add('more');
+  // A situational round opens on its goal and counts: that's what there is to fill in.
+  if (existing ? existing.type === 'roll' && existing.detail?.goal : opts.type === 'roll' && opts.detail?.goal) openSections.add('positions');
   const now = Date.now();
   if (existing) {
     const e = existing;

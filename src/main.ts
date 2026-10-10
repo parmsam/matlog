@@ -2,6 +2,7 @@ import './styles.css';
 import { KINDS } from './core/kinds';
 import { app, init, settings, setupPersistence } from './core/log';
 import { tapKind, holdKind } from './ui/actions';
+import { checkReflectNotify } from './ui/reflectNotify';
 import { createAgentApi } from './ui/agentApi';
 import { renderCompanion } from './ui/companion';
 import { copyText } from './ui/dom';
@@ -93,6 +94,11 @@ settings.subscribe((s, prev) => {
   showBanner();
   render();
 });
+
+// A reflection coming due while you're in another tab or app: a notification, if you turned it on.
+// Background tabs run timers about once a minute at most, which is plenty here.
+setInterval(() => checkReflectNotify(), 30_000);
+window.addEventListener('blur', () => checkReflectNotify());
 
 // Everything is derived from timestamps, so a once-a-second redraw keeps timers and "ago" fresh.
 setInterval(() => {

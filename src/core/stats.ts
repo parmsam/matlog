@@ -2,7 +2,7 @@ import { POSITIONS, positionLabel, resolveSub, SUBMISSIONS, subLabel, techniqueB
 import { addDays, dayDate, dayKey, dayStart, weekOf } from './days';
 import { isSession, minutesOf, spanEnd } from './events';
 import { plural } from './format';
-import { BELTS, type Belt, type LogEvent, type PatchId, type Role, type Settings, type Size } from './types';
+import { BELTS, type Belt, type Detail, type LogEvent, type PatchId, type Role, type Settings, type Size } from './types';
 
 /**
  * Descriptive numbers from the log. Nothing here is advice: patterns say what happened and what
@@ -410,7 +410,21 @@ export interface PositionalStats {
   /** …of them, from a bad spot. */
   badSpots: number;
   byStart: Count[];
+  /** Situational rounds with a score, by where they started: how often each side got its goal. */
+  goals: GoalRecord[];
 }
+
+export interface GoalRecord {
+  id: string;
+  label: string;
+  rounds: number;
+  /** Times you got your goal. */
+  for: number;
+  /** Times your partner got theirs. */
+  against: number;
+}
+
+const scored = (d: Detail | undefined) => d?.goalsFor !== undefined || d?.goalsAgainst !== undefined;
 
 export function positionalStats(events: LogEvent[]): PositionalStats {
   const rs = rolls(events);
@@ -426,5 +440,37 @@ export function positionalStats(events: LogEvent[]): PositionalStats {
         return `${positionLabel(p)}${role ? ` (${role})` : ''}`;
       },
     ),
+    goals: goalRecords(rs.filter((r) => scored(r.detail))),
   };
+}
+
+/**
+ * The setup for the next round in a session: situational sparring runs the same start, side and
+ * goal round after round, so the last round's carries over. Counts and notes don't.
+ */
+export function nextRoundSetup(session: LogEvent | undefined, events: LogEvent[], now: number): Detail {
+  if (!session) return {};
+  const last = rollsIn(session, events, now).at(-1)?.detail;
+  if (!last?.start && !last?.goal) return {};
+  const out: Detail = {};
+  if (last.start) out.start = last.start;
+  if (last.role) out.role = last.role;
+  if (last.goal) out.goal = last.goal;
+  return out;
+}
+
+function goalRecords(rs: LogEvent[]): GoalRecord[] {
+  const m = new Map<string, GoalRecord>();
+  for (const r of rs) {
+    const d = r.detail!;
+    // By start and side; a round with a goal but no start groups by its goal instead.
+    const id = d.start ? `${d.start}:${d.role ?? ''}` : `goal:${(d.goal ?? '').trim().toLowerCase()}`;
+    const label = d.start ? `${positionLabel(d.start)}${d.role ? ` (${d.role})` : ''}` : d.goal?.trim() || 'No start position';
+    const g = m.get(id) ?? { id, label, rounds: 0, for: 0, against: 0 };
+    g.rounds++;
+    g.for += d.goalsFor ?? 0;
+    g.against += d.goalsAgainst ?? 0;
+    m.set(id, g);
+  }
+  return [...m.values()].sort((a, b) => b.for + b.against - (a.for + a.against) || a.label.localeCompare(b.label));
 }

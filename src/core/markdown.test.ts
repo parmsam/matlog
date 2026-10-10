@@ -144,6 +144,18 @@ Followed my plan: partly
     expect(back.problems[0]).toMatchObject({ text: 'stuck under mount', idea: 'elbow knee' });
     expect(back.rolls[0].detail).toMatchObject({ start: 'mount', role: 'bottom' });
   });
+  it('round-trips situational rounds, a 0 count included', () => {
+    const now = at(2026, 10, 9, 20);
+    const s = ev('class', at(2026, 10, 8, 18), { min: 60 });
+    const r = ev('roll', at(2026, 10, 8, 18, 30), { min: 5, start: 'side-control', role: 'bottom', goal: 'escape or sweep', goalsFor: 0, goalsAgainst: 3, goalNote: 'flat all round\nneed frames', sessionId: s.id });
+    const md = toMarkdown([s, r], '2026-10-08', '2026-10-08', now);
+    expect(md).toContain('  - Goal: escape or sweep\n  - Got it: 0\n  - They got it: 3\n  - How it went: flat all round need frames');
+    expect(parseMarkdown(md)[0].rolls[0].detail).toMatchObject({ goal: 'escape or sweep', goalsFor: 0, goalsAgainst: 3, goalNote: 'flat all round need frames' });
+  });
+  it('reads counts written as words', () => {
+    const [s] = parseMarkdown('## Class\n### Rounds\n- Jo\n  - Rules: pass or sub\n  - Got it: twice\n  - They got it: none');
+    expect(s.rolls[0].detail).toMatchObject({ partner: 'Jo', goal: 'pass or sub', goalsFor: 2, goalsAgainst: 0 });
+  });
 });
 
 describe('injuries in notes', () => {
@@ -166,7 +178,7 @@ describe('note format v2', () => {
     expect(s.at).toBe(at(2026, 10, 8, 18));
     expect(s.detail).toMatchObject({ min: 90, attire: 'nogi', topic: 'Half guard passing', techniques: ['knee-cut', 'Shoulder post wrist grab arm drag'], note: 'Anything else, as free text.' });
     expect(s.techNotes).toEqual([{ technique: 'knee-cut', kind: 'detail', text: 'underhook the far arm first' }]);
-    expect(s.rolls[0].detail).toEqual({ partner: 'Sam', belt: 'purple', size: 'bigger', start: 'half-guard', role: 'bottom', subsFor: ['armbar'], subsAgainst: ['triangle'], landed: ['knee-cut'], stuck: ['half-guard'] });
+    expect(s.rolls[0].detail).toEqual({ partner: 'Sam', belt: 'purple', size: 'bigger', start: 'half-guard', role: 'bottom', goal: 'sweep or come up', goalsFor: 2, goalsAgainst: 1, goalNote: 'came up twice once I got the underhook', subsFor: ['armbar'], subsAgainst: ['triangle'], landed: ['knee-cut'], stuck: ['half-guard'] });
     expect(s.problems).toEqual([{ text: 'Got flattened in half guard', idea: 'knee shield first', solved: false, source: 'internal' }]);
     expect(s.injuries).toEqual([{ area: 'knee', side: 'left', severity: 'minor', how: 'heel hook', around: 'no leg locks' }]);
   });

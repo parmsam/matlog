@@ -13,6 +13,7 @@ import { backUpNow } from './backup';
 import { BELT_LABEL, copyText, esc, openDialog, sheetHead } from './dom';
 import { storageStatus } from './persist';
 import { toast } from './toast';
+import { askToNotify, canNotify } from './reflectNotify';
 
 const dialog = () => document.getElementById('settings') as HTMLDialogElement;
 
@@ -54,6 +55,8 @@ async function render() {
     <label class="check"><input type="checkbox" name="classOnHour" ${s.classOnHour ? 'checked' : ''} /> Classes start on the hour</label>
     <p class="hint" style="margin-top:2px">Class length is used when you log one you already did. Starting on the hour moves a class logged afterwards to the hour, and a tap within 10 minutes after the hour back to it; the toast always offers the exact time.</p>
     <label class="field"><span class="field-label">Reflection prompt</span><select name="reflectAfter">${opt(0, 'Right after a session', s.reflectAfter)}${opt(60, 'An hour after', s.reflectAfter)}${opt(120, 'Two hours after', s.reflectAfter)}${opt(240, 'Four hours after (the evening)', s.reflectAfter)}${opt(-1, 'Off', s.reflectAfter)}</select></label>
+    ${canNotify() ? `<label class="check"><input type="checkbox" data-reflect-notify ${s.reflectNotify && Notification.permission === 'granted' ? 'checked' : ''} /> Also send a notification</label>
+    <p class="hint" style="margin-top:2px">Only while matlog is open in a tab or window, so it suits a laptop. Phones pause the app once you switch away; the prompt waits on the home screen.</p>` : ''}
     <div class="row">
       <label class="field"><span class="field-label">Week starts</span><select name="weekStart">${opt(1, 'Monday', s.weekStart)}${opt(0, 'Sunday', s.weekStart)}</select></label>
       <label class="field"><span class="field-label">Clock</span><select name="clock">${opt('auto', 'Auto', s.clock)}${opt('12h', '12-hour', s.clock)}${opt('24h', '24-hour', s.clock)}</select></label>
@@ -65,6 +68,8 @@ async function render() {
   <section class="block"><h3>Buttons</h3>
     <p class="basis">Which cards show on the home screen. Hidden ones still work from links, keys and the API, and show while running.</p>
     <div class="picks">${KINDS.map((k) => `<label class="pick check-pick"><input type="checkbox" data-card-toggle="${k.id}" ${s.hiddenCards.includes(k.id) ? '' : 'checked'} /> ${k.emoji} ${k.label}</label>`).join('')}</div>
+    <label class="check"><input type="checkbox" data-cards-past ${s.cardsLogPast ? 'checked' : ''} /> Cards log past sessions only (no timers)</label>
+    <p class="hint" style="margin-top:2px">A tap opens one you already did, to fill in its time and details. Anything already running still stops with a tap. The round clock, links and the API still time things.</p>
   </section>
 
   ${
@@ -129,6 +134,19 @@ export function openSettings() {
         return;
       }
       settings.set({ hiddenCards: next });
+      return;
+    }
+    if (el.dataset.reflectNotify !== undefined) {
+      const on = el.checked && (await askToNotify());
+      if (el.checked && !on) {
+        el.checked = false;
+        toast('Notifications are blocked for matlog. Allow them in the browser’s site settings, then try again.');
+      }
+      settings.set({ reflectNotify: on });
+      return;
+    }
+    if (el.dataset.cardsPast !== undefined) {
+      settings.set({ cardsLogPast: el.checked });
       return;
     }
     if (el.dataset.backupEvery !== undefined) {

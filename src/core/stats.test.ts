@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { currentRank, matMinutes, moveStats, nextPatch, positionalStats, skillLadder, patterns, positionGraph, rankTimeline, rollsIn, rollStats, techniqueUses, unlockedPatches, weekHeatmap, weekRecap } from './stats';
+import { currentRank, matMinutes, moveStats, nextPatch, nextRoundSetup, positionalStats, skillLadder, patterns, positionGraph, rankTimeline, rollsIn, rollStats, techniqueUses, unlockedPatches, weekHeatmap, weekRecap } from './stats';
 import { at, ev, MIN } from './testUtil';
 
 const now = at(2026, 10, 9, 20);
@@ -181,7 +181,36 @@ describe('skill ladder and positional rounds', () => {
     expect(skillLadder(events, 'triangle', prefs).cells.smaller.lower).toEqual({ attempts: 1, landed: 1 });
   });
   it('counts positional rounds and bad spots', () => {
-    expect(positionalStats(events)).toMatchObject({ rolls: 5, positional: 3, badSpots: 2 });
+    expect(positionalStats(events)).toMatchObject({ rolls: 5, positional: 3, badSpots: 2, goals: [] });
+  });
+  it('totals situational rounds by start and side, or by goal without a start', () => {
+    const g = positionalStats([
+      ev('roll', at(2026, 10, 1), { start: 'side-control', role: 'bottom', goal: 'escape', goalsFor: 1, goalsAgainst: 2 }),
+      ev('roll', at(2026, 10, 2), { start: 'side-control', role: 'bottom', goalsFor: 2 }),
+      ev('roll', at(2026, 10, 3), { start: 'side-control', role: 'top', goalsAgainst: 0 }),
+      ev('roll', at(2026, 10, 4), { goal: 'Grip fight', goalsFor: 3, goalsAgainst: 1 }),
+      ev('roll', at(2026, 10, 5), { start: 'mount', goal: 'escape' }), // no count: not in the table
+    ]).goals;
+    expect(g).toEqual([
+      { id: 'side-control:bottom', label: 'Side control (bottom)', rounds: 2, for: 3, against: 2 },
+      { id: 'goal:grip fight', label: 'Grip fight', rounds: 1, for: 3, against: 1 },
+      { id: 'side-control:top', label: 'Side control (top)', rounds: 1, for: 0, against: 0 },
+    ]);
+  });
+});
+
+describe('next round setup', () => {
+  const s = ev('open-mat', at(2026, 10, 1, 19), { min: 60 });
+  it("carries the last round's start, side and goal, not its counts or notes", () => {
+    const r1 = ev('roll', at(2026, 10, 1, 19, 5), { min: 5, sessionId: s.id, start: 'mount', role: 'top' });
+    const r2 = ev('roll', at(2026, 10, 1, 19, 11), { min: 5, sessionId: s.id, start: 'side-control', role: 'bottom', goal: 'escape', goalsFor: 2, goalNote: 'ok', partner: 'Jo' });
+    expect(nextRoundSetup(s, [s, r2, r1], now)).toEqual({ start: 'side-control', role: 'bottom', goal: 'escape' });
+  });
+  it('is empty without a session, or after a plain round', () => {
+    const plain = ev('roll', at(2026, 10, 1, 19, 20), { min: 5, sessionId: s.id, partner: 'Jo' });
+    const before = ev('roll', at(2026, 10, 1, 19, 5), { min: 5, sessionId: s.id, goal: 'escape' });
+    expect(nextRoundSetup(undefined, [plain], now)).toEqual({});
+    expect(nextRoundSetup(s, [s, before, plain], now)).toEqual({});
   });
 });
 

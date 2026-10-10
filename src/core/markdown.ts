@@ -32,6 +32,10 @@ export const NOTE_FORMAT = `## Class
 ### Rounds
 - Sam (purple, bigger)
   - Started from: half guard bottom
+  - Goal: sweep or come up
+  - Got it: 2
+  - They got it: 1
+  - How it went: came up twice once I got the underhook
   - Hit: armbar
   - Tapped to: triangle
   - Landed: knee cut
@@ -55,6 +59,7 @@ export const NOTE_RULES = [
   'Session details are bullets: Date (YYYY-MM-DD HH:MM), Length (90m, 1h30), Gi (gi or no-gi), Topic, Enjoyed (1–5), Followed my plan (yes, partly, no). Study also takes Source.',
   '`### Techniques`: one technique per bullet. Sub-bullets add notes to it: Key detail, Observation, Question, Source (a link in brackets works).',
   '`### Rounds` (or Rolls, Matches): one partner per bullet, with belt, size and length in brackets. Sub-bullets: Started from (a position, then top or bottom), Hit, Tapped to, Landed, Went for, Stuck, Result (win, draw, loss), Note. Lists are comma-separated.',
+  'Situational rounds add Goal (the rule, e.g. sweep or come up), Got it and They got it (how many times each side got their goal; the round can reset and go again), and How it went (a sentence or two).',
   '`### Problems`: one problem per bullet, `(solved)` at the end if it is. Sub-bullet: Idea.',
   '`### Injuries`: one per bullet, like `Left knee (minor)`. Sub-bullets: How, Training around it.',
   '`### Notes`: free text. Anything matlog doesn’t recognise also ends up in the note.',
@@ -79,6 +84,10 @@ function roundMarkdown(r: LogEvent, now: number): string[] {
     if (v) out.push(`  - ${k}: ${v}`);
   };
   sub('Started from', d.start ? `${positionLabel(d.start).toLowerCase()}${d.role ? ` ${d.role}` : ''}` : undefined);
+  sub('Goal', d.goal ? sentence(d.goal) : undefined);
+  sub('Got it', d.goalsFor !== undefined || d.goalsAgainst !== undefined ? String(d.goalsFor ?? 0) : undefined);
+  sub('They got it', d.goalsFor !== undefined || d.goalsAgainst !== undefined ? String(d.goalsAgainst ?? 0) : undefined);
+  sub('How it went', d.goalNote ? sentence(d.goalNote) : undefined);
   sub('Hit', d.subsFor?.map(subLabel).join(', '));
   sub('Tapped to', d.subsAgainst?.map(subLabel).join(', '));
   sub('Landed', d.landed?.map(techniqueLabel).join(', '));
@@ -257,6 +266,16 @@ function outcomeOf(v: string): Detail['outcome'] | undefined {
   return undefined;
 }
 
+/** "2", "twice", "none": how many times a side got its goal. */
+function countOf(v: string): number | undefined {
+  const t = v.trim().toLowerCase();
+  const words: Record<string, number> = { none: 0, never: 0, zero: 0, no: 0, once: 1, one: 1, twice: 2, two: 2, three: 3, four: 4, five: 5 };
+  const m = /^(\d{1,2})\b/.exec(t);
+  if (m) return Number(m[1]);
+  const w = /^[a-z]+/.exec(t)?.[0];
+  return w !== undefined && w in words ? words[w] : undefined;
+}
+
 /** Applies one round detail ("Hit: armbar, kimura") to a round. Returns false for a key it doesn't know. */
 function roundKey(d: Detail, key: string, v: string): boolean {
   const add = (field: 'subsFor' | 'subsAgainst' | 'landed' | 'tried' | 'stuck', resolve: (s: string) => string) => {
@@ -269,6 +288,10 @@ function roundKey(d: Detail, key: string, v: string): boolean {
   else if (/^(stuck|stuck in|got stuck|pinned)$/.test(key)) add('stuck', resolvePosition);
   else if (/^(started from|start|from|position|starting position)$/.test(key)) Object.assign(d, startOf(v));
   else if (/^(result|outcome)$/.test(key)) d.outcome = outcomeOf(v) ?? d.outcome;
+  else if (/^(goal|goals|rules?|task|game)$/.test(key)) d.goal = v.trim().slice(0, 120) || d.goal;
+  else if (/^(got it|got mine|got my goal|i got it|you got it|scored)$/.test(key)) d.goalsFor = countOf(v) ?? d.goalsFor;
+  else if (/^(they got it|they got theirs|partner got it|they scored|conceded)$/.test(key)) d.goalsAgainst = countOf(v) ?? d.goalsAgainst;
+  else if (/^(how it went|went)$/.test(key)) d.goalNote = [d.goalNote, v.trim()].filter(Boolean).join('; ').slice(0, 500) || undefined;
   else if (key === 'partner') d.partner = v.slice(0, 60);
   else if (key === 'belt' && BELTS.includes(v.toLowerCase().replace(/\s*belt$/, '') as Belt)) d.belt = v.toLowerCase().replace(/\s*belt$/, '') as Belt;
   else if (key === 'size' && SIZE_WORDS[v.toLowerCase()]) d.size = SIZE_WORDS[v.toLowerCase()];

@@ -139,6 +139,10 @@ function render() {
 
     <section class="block"><h3>Positional rounds</h3>
       ${pos.positional ? `<p class="basis">${pos.positional} of ${plural(pos.rolls, 'round')} started from a position${pos.badSpots ? `, ${pos.badSpots} from a bad spot (bottom of a pin, or turtle)` : ''}.</p>${bars(pos.byStart, 'var(--k-roll)', '', 8)}` : '<p class="empty">Note where a round started (Started from) to see positional rounds here.</p>'}
+      ${pos.goals.length ? `<table class="data"><thead><tr><th>Situation</th><th class="num">Rounds</th><th class="num">You got it</th><th class="num">They did</th></tr></thead><tbody>${pos.goals
+        .slice(0, 8)
+        .map((g) => `<tr><td>${esc(g.label)}</td><td class="num">${g.rounds}</td><td class="num">${g.for}</td><td class="num">${g.against}</td></tr>`)
+        .join('')}</tbody></table><p class="basis">How many times each side got its goal, from rounds where you counted.</p>` : ''}
     </section>
 
     <section class="block"><h3>Injuries</h3>

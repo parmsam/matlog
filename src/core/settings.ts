@@ -28,6 +28,8 @@ export const DEFAULT_SETTINGS: Settings = {
   restMin: 1,
   hiddenCards: ['study'],
   classOnHour: true,
+  cardsLogPast: false,
+  reflectNotify: false,
   splash: true,
   lastBelt: 'white',
 };
@@ -80,6 +82,8 @@ export function sanitize(saved: Partial<Settings>): Settings {
   s.hiddenCards = Array.isArray(s.hiddenCards) ? [...new Set(s.hiddenCards.filter((id) => cards.includes(id)))] : [];
   if (s.hiddenCards.length >= cards.length) s.hiddenCards = [];
   s.classOnHour = s.classOnHour !== false;
+  s.cardsLogPast = s.cardsLogPast === true;
+  s.reflectNotify = s.reflectNotify === true;
   s.focusHistory = Array.isArray(s.focusHistory)
     ? s.focusHistory.filter((h) => h && typeof h.text === 'string' && h.text.trim() && Number.isFinite(h.from) && Number.isFinite(h.to)).slice(0, 12)
     : [];

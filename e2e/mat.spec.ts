@@ -33,6 +33,32 @@ test('a round with nothing running offers to start open mat; saving a round offe
   expect(stored.find((e) => e.type === 'roll' && e.endAt)?.detail).toMatchObject({ start: 'side-control', role: 'bottom' });
 });
 
+test('a situational round: goal, a count each way, and how it went', async ({ page }) => {
+  const now = Date.now();
+  const r = ev('roll', now - 10 * MIN, { detail: { min: 5, partner: 'Riley' } });
+  await open(page, { events: [ev('open-mat', now - 30 * MIN, { detail: { min: 60 } }), r] });
+  await page.locator(`[data-entry="${r.id}"]`).click();
+  const sheet = page.locator('#sheet');
+  await unfold(page, 'positions');
+  await sheet.locator('[data-f="start"]').selectOption('mount');
+  await sheet.getByRole('button', { name: 'Bottom' }).click();
+  await sheet.locator('[data-f="goal"]').fill('escape or sweep');
+  const mine = sheet.getByRole('group', { name: 'You got yours' });
+  const theirs = sheet.getByRole('group', { name: 'They got theirs' });
+  await expect(mine.getByRole('button', { name: 'One fewer' })).toBeDisabled();
+  await mine.getByRole('button', { name: 'One more' }).click();
+  await page.keyboard.press('Space'); // focus stays on +, so it keeps counting
+  await theirs.getByRole('button', { name: 'One more' }).click();
+  await theirs.getByRole('button', { name: 'One more' }).click();
+  await theirs.getByRole('button', { name: 'One fewer' }).click();
+  await expect(mine.locator('output')).toHaveText('2');
+  await expect(theirs.locator('output')).toHaveText('1');
+  await sheet.locator('[data-f="goalNote"]').fill('  framed early, got out twice  ');
+  await sheet.getByRole('button', { name: 'Save' }).click();
+  const stored = (await storedEvents(page)).find((e) => e.id === r.id)!;
+  expect(stored.detail).toMatchObject({ start: 'mount', role: 'bottom', goal: 'escape or sweep', goalsFor: 2, goalsAgainst: 1, goalNote: 'framed early, got out twice' });
+});
+
 test('editing a session lists its rounds and adds one', async ({ page }) => {
   const now = Date.now();
   const s = ev('open-mat', now - 3 * 60 * MIN, { detail: { min: 90 } });
@@ -102,4 +128,72 @@ test('tap the buddy for a line', async ({ page }) => {
   const first = await page.locator('#buddy-says').textContent();
   await page.locator('#companion').click();
   await expect(page.locator('#buddy-says')).not.toHaveText(first!);
+});
+
+test('cards can log past sessions only: a tap opens a finished entry, a running one still stops', async ({ page }) => {
+  const now = Date.now();
+  const running = ev('roll', now - 2 * MIN);
+  await open(page, { settings: { cardsLogPast: true }, events: [running] });
+  await expect(card(page, 'open-mat')).toContainText('tap to log');
+  await card(page, 'open-mat').click();
+  const sheet = page.locator('#sheet');
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator('[data-f="running"]')).not.toBeChecked();
+  await sheet.getByRole('button', { name: 'Save' }).click();
+  await expect(card(page, 'open-mat')).not.toHaveClass(/running/);
+  const stored = await storedEvents(page);
+  expect(stored.find((e) => e.type === 'open-mat')?.endAt).toBeDefined();
+  // The round that was already running stops (and opens its sheet), as usual.
+  await card(page, 'roll').click();
+  await expect(card(page, 'roll')).not.toHaveClass(/running/);
+});
+
+test('the next round in a session carries the situation over', async ({ page }) => {
+  const now = Date.now();
+  const s = ev('open-mat', now - 20 * MIN);
+  const r = ev('roll', now - 10 * MIN, { endAt: now - 5 * MIN, detail: { sessionId: s.id, start: 'side-control', role: 'bottom', goal: 'escape or sweep', goalsFor: 2, goalNote: 'framed' } });
+  await open(page, { events: [s, r] });
+  await card(page, 'roll').click();
+  await expect(toastEl(page)).toContainText('Side control bottom, escape or sweep');
+  await card(page, 'roll').click(); // stop: the sheet opens on the situation
+  const sheet = page.locator('#sheet');
+  await expect(sheet.locator('[data-section="positions"]')).toHaveAttribute('open', '');
+  await expect(sheet.locator('[data-f="goal"]')).toHaveValue('escape or sweep');
+  await expect(sheet.getByRole('group', { name: 'You got yours' }).locator('output')).toHaveText('0');
+  await expect(sheet.locator('[data-f="goalNote"]')).toHaveValue('');
+  await sheet.getByRole('button', { name: 'Save' }).click();
+  const next = (await storedEvents(page)).filter((e) => e.type === 'roll' && e.id !== r.id)[0];
+  expect(next.detail).toMatchObject({ sessionId: s.id, start: 'side-control', role: 'bottom', goal: 'escape or sweep' });
+  expect(next.detail?.goalsFor).toBeUndefined();
+});
+
+test('reflection notification: asks permission, then notifies once while you are elsewhere', async ({ page, context, browserName }) => {
+  test.skip(browserName !== 'chromium', 'permission granting differs by browser');
+  await context.grantPermissions(['notifications']);
+  await page.addInitScript(() => {
+    const shown: string[] = [];
+    (window as unknown as { shown: string[] }).shown = shown;
+    class FakeNotification {
+      static permission = 'granted';
+      static requestPermission = async () => 'granted';
+      onclick: (() => void) | null = null;
+      constructor(title: string, o: { body: string }) {
+        shown.push(`${title} ${o.body}`);
+      }
+      close() {}
+    }
+    (window as unknown as { Notification: unknown }).Notification = FakeNotification;
+  });
+  const now = Date.now();
+  await open(page, { settings: { reflectAfter: 0 }, events: [ev('class', now - 90 * MIN, { endAt: now - 30 * MIN })] });
+  await page.locator('#settings-open').click();
+  await page.locator('[data-reflect-notify]').check();
+  await page.keyboard.press('Escape');
+  // Pretend the window lost focus, then check twice: one notification.
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hasFocus', { value: () => false });
+    window.dispatchEvent(new Event('blur'));
+    window.dispatchEvent(new Event('blur'));
+  });
+  expect(await page.evaluate(() => (window as unknown as { shown: string[] }).shown)).toEqual(['How did it go? Reflect on class: five minutes in the notebook.']);
 });

@@ -13,6 +13,7 @@ import type { KindId } from './kinds';
  *   rolls: &partner=Sam&belt=purple&size=bigger&sub=armbar&tapped=triangle&stuck=half guard&outcome=win
  *          &landed=knee cut&tried=berimbolo  (moves you landed / went for)
  *          &from=side control&role=bottom  (a positional round)
+ *          &goal=escape or sweep&got=2&theygot=1&went=…  (a situational round: its goal, the count each way, how it went)
  *   sessions: &enjoy=1..5&plan=yes|partly|no     study: &source=…
  *
  * Settings never travel in the URL. Parameters are removed once the action has run.
@@ -23,7 +24,7 @@ export type LinkVerb = 'log' | 'start' | 'stop' | 'toggle';
 export type LinkAction = { kind: LinkVerb; what: KindId; detail: Detail; minutesAgo: number } | { kind: 'invalid'; reason: string };
 
 /** Query parameters that belong to an action (removed after it runs). */
-export const LINK_PARAMS = ['do', 'type', 'what', 'min', 'ago', 'gi', 'attire', 'tech', 'partner', 'belt', 'size', 'sub', 'tapped', 'stuck', 'landed', 'tried', 'outcome', 'from', 'role', 'enjoy', 'plan', 'source', 'topic', 'note'] as const;
+export const LINK_PARAMS = ['do', 'type', 'what', 'min', 'ago', 'gi', 'attire', 'tech', 'partner', 'belt', 'size', 'sub', 'tapped', 'stuck', 'landed', 'tried', 'outcome', 'from', 'role', 'goal', 'got', 'theygot', 'went', 'enjoy', 'plan', 'source', 'topic', 'note'] as const;
 
 /** What people (and Siri) actually say. */
 const WHAT: Record<string, KindId> = {
@@ -132,6 +133,18 @@ export function parseLinkAction(search: string): LinkAction | null {
     detail.role = role;
   }
   if (what !== 'roll' && (detail.start || detail.role)) return { kind: 'invalid', reason: 'from and role are for type=roll' };
+  const goal = q.get('goal')?.trim().slice(0, 120);
+  if (goal) detail.goal = goal;
+  for (const [param, field] of [['got', 'goalsFor'], ['theygot', 'goalsAgainst']] as const) {
+    const raw = q.get(param);
+    if (raw === null || raw.trim() === '') continue;
+    const v = Number(raw);
+    if (!(Number.isInteger(v) && v >= 0 && v <= 99)) return { kind: 'invalid', reason: `${param} is a count, 0–99` };
+    detail[field] = v;
+  }
+  const went = q.get('went')?.trim().slice(0, 500);
+  if (went) detail.goalNote = went;
+  if (what !== 'roll' && (detail.goal || detail.goalsFor !== undefined || detail.goalsAgainst !== undefined || detail.goalNote)) return { kind: 'invalid', reason: 'goal, got, theygot and went are for type=roll' };
   const enjoy = q.get('enjoy');
   if (enjoy !== null) {
     const v = Math.round(Number(enjoy));

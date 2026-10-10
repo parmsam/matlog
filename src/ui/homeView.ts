@@ -51,7 +51,7 @@ export function mountCards(el: HTMLElement) {
 
 export function renderCards(el: HTMLElement, now: number) {
   const { events } = app.get();
-  const hidden = settings.get().hiddenCards;
+  const { hiddenCards: hidden, cardsLogPast: past } = settings.get();
   for (const k of KINDS) {
     const b = el.querySelector<HTMLElement>(`[data-card="${k.id}"]`);
     if (!b) continue;
@@ -64,10 +64,14 @@ export function renderCards(el: HTMLElement, now: number) {
     if (on) text = timer(now - on.at);
     else {
       const last = lastOf(events, k.id, now);
-      text = last ? ago(last.at, now) : k.id === 'roll' ? 'round timer' : 'tap to start';
+      text = last ? ago(last.at, now) : past ? 'tap to log' : k.id === 'roll' ? 'round timer' : 'tap to start';
     }
     if (sub.textContent !== text) sub.textContent = text;
-    const label = on ? `${k.label}: running ${duration(now - on.at)}. Tap to stop, hold for details.` : `${k.label}: tap to start, hold to log one you already did.`;
+    const label = on
+      ? `${k.label}: running ${duration(now - on.at)}. Tap to stop, hold for details.`
+      : past
+        ? `${k.label}: tap to log one you already did.`
+        : `${k.label}: tap to start, hold to log one you already did.`;
     if (b.getAttribute('aria-label') !== label) b.setAttribute('aria-label', label);
   }
 }

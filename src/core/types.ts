@@ -44,6 +44,11 @@ export interface Detail {
   /** Positional round: where it started (position id) and which side you were on. */
   start?: string;
   role?: Role;
+  /** Situational sparring: the rule or goal ("escape or sweep"), how many times each side got theirs, and how it went. */
+  goal?: string;
+  goalsFor?: number;
+  goalsAgainst?: number;
+  goalNote?: string;
 
   // Session check-in (usually filled in when reflecting)
   /** How much you enjoyed it, 1–5. */
@@ -235,4 +240,8 @@ export interface Settings {
   hiddenCards: string[];
   /** Classes start on the hour: snap class start times (see core/ops.ts classStart). */
   classOnHour: boolean;
+  /** Cards log one you already did (open a finished entry) instead of starting a timer. */
+  cardsLogPast: boolean;
+  /** Also a system notification when a reflection comes due (while matlog is open somewhere). */
+  reflectNotify: boolean;
 }

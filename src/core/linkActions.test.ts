@@ -56,4 +56,10 @@ describe('v0.3 link parameters', () => {
     expect(parseLinkAction('?do=log&type=class&source=x')).toMatchObject({ kind: 'invalid' });
     expect(parseLinkAction('?do=log&type=class&enjoy=9')).toMatchObject({ kind: 'invalid' });
   });
+  it('reads situational rounds', () => {
+    expect(parseLinkAction('?do=log&type=roll&from=mount&role=bottom&goal=escape&got=0&theygot=2&went=too flat')).toMatchObject({ detail: { start: 'mount', goal: 'escape', goalsFor: 0, goalsAgainst: 2, goalNote: 'too flat' } });
+    expect(parseLinkAction('?do=log&type=roll&got=-1')).toMatchObject({ kind: 'invalid' });
+    expect(parseLinkAction('?do=log&type=roll&theygot=1.5')).toMatchObject({ kind: 'invalid' });
+    expect(parseLinkAction('?do=log&type=class&goal=escape')).toMatchObject({ kind: 'invalid' });
+  });
 });

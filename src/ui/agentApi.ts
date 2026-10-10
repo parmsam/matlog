@@ -6,7 +6,7 @@ import { parseLinkAction } from '../core/linkActions';
 import { app, settings } from '../core/log';
 import { parseMarkdown, toMarkdown } from '../core/markdown';
 import { logKind, startKind, stopKind, toggleKind, type OpResult } from '../core/ops';
-import { currentRank, matMinutes, patterns, rankTimeline, rollsIn, rollStats, techniqueUses, weekRecap } from '../core/stats';
+import { currentRank, matMinutes, patterns, positionalStats, rankTimeline, rollsIn, rollStats, techniqueUses, weekRecap } from '../core/stats';
 import type { LogEvent } from '../core/types';
 import { logMarkdown } from './pasteView';
 import { newTechNote, techNotes } from '../core/library';
@@ -47,6 +47,11 @@ export interface ActOptions {
   /** Positional round: where it started, and your side. */
   from?: string;
   role?: 'top' | 'bottom';
+  /** Situational round: the goal or rules, how many times you and they got it, and how it went. */
+  goal?: string;
+  got?: number;
+  theyGot?: number;
+  howItWent?: string;
   /** Session check-in: enjoyment 1–5, and whether you followed your plan. */
   enjoy?: number;
   plan?: 'yes' | 'partly' | 'no';
@@ -78,6 +83,10 @@ function toEntry(e: LogEvent, now = Date.now()) {
       stuck: (d.stuck ?? []).map(positionLabel),
       from: d.start ? positionLabel(d.start) : null,
       role: d.role ?? null,
+      goal: d.goal ?? null,
+      got: d.goalsFor ?? null,
+      theyGot: d.goalsAgainst ?? null,
+      howItWent: d.goalNote ?? null,
       landed: (d.landed ?? []).map(techniqueLabel),
       tried: (d.tried ?? []).map(techniqueLabel),
     };
@@ -103,6 +112,10 @@ function act(verb: 'log' | 'start' | 'stop' | 'toggle', what: string, opts: ActO
     outcome: opts.outcome,
     from: opts.from,
     role: opts.role,
+    goal: opts.goal,
+    got: opts.got,
+    theygot: opts.theyGot,
+    went: opts.howItWent,
     enjoy: opts.enjoy,
     plan: opts.plan,
     source: opts.source,
@@ -125,6 +138,7 @@ export const RECIPES: { ask: string; code: string; note: string }[] = [
   { ask: 'I just bowed in to class', code: "matlog.start('class')", note: 'stop() ends it (and any round running inside it). toggle() does whichever applies.' },
   { ask: 'Log a round: tapped Sam (purple) with an armbar, got stuck in half guard', code: "matlog.log('roll', { partner: 'Sam', belt: 'purple', subs: 'armbar', stuck: 'half guard' })", note: 'tapped: what you tapped to. Rounds default to 5 minutes (the round length in the round clock); pass min.' },
   { ask: 'At open mat I landed a knee cut twice and went for a berimbolo', code: "matlog.log('roll', { landed: 'knee cut', tried: 'berimbolo' })", note: 'One call per round. techniques() then shows each move as landed X of Y attempts.' },
+  { ask: 'Situational round from side control bottom, escape or sweep: got out twice, got pinned once', code: "matlog.log('roll', { from: 'side control', role: 'bottom', goal: 'escape or sweep', got: 2, theyGot: 1, howItWent: 'framed early and got out' })", note: 'got and theyGot count how many times each side got their goal; the round can reset and go again. stats().situations totals them by start.' },
   { ask: 'How many mat hours do I have?', code: 'matlog.state().matHours', note: 'state() also has rank, what is running, and the last 7 days.' },
   { ask: 'What do I get stuck in, and what do I tap to?', code: 'matlog.stats()', note: 'Counts and ratios. patterns() has plain sentences with what each is based on. Descriptive, never advice.' },
   { ask: "I'm working on my knee cut for the next two weeks", code: "matlog.focus('knee cut', { role: 'main', blockDays: 14 })", note: 'Shown on the home screen. matlog.focus() reports each focus and what happened this block. Never add one the person did not ask for.' },
@@ -142,6 +156,7 @@ matlog.log(type, opts?)        log a finished one, ending now (or minutesAgo); o
                                  partner, belt, size: 'smaller'|'similar'|'bigger',     (rolls)
                                  subs, tapped, landed, tried, stuck,                    (rolls; lists: array or comma text)
                                  outcome: 'win'|'loss'|'draw', from, role: 'top'|'bottom',
+                                 goal, got, theyGot, howItWent,                         (situational rounds)
                                  topic, enjoy: 1-5, plan: 'yes'|'partly'|'no',        (sessions)
                                  source }                                              (study)
 matlog.start(type, opts?)      start the timer (one session at a time; a round can run inside it)
@@ -152,7 +167,7 @@ matlog.undo()                  undo the last change made in the app (within 5 mi
 matlog.markdown(days = 7)      the last N days as Markdown
 matlog.importMarkdown(text)    log a pasted class note; returns what was added
 matlog.parseMarkdown(text)     preview what importMarkdown would log, without logging
-matlog.stats()                 subs for/against, stuck positions, partners, by belt
+matlog.stats()                 subs for/against, stuck positions, partners, by belt, situations
 matlog.techniques()            drilled in sessions, landed/tried in rounds, from → to positions
 matlog.patterns()              plain descriptions, each with what it's based on (not advice)
 matlog.focus(text?, opts?)     focuses (blocks, what happened this block); with text, adds one:
@@ -235,6 +250,7 @@ export function createAgentApi() {
         roundsWithStuck: s.stuckRolls,
         partners: s.partners.map(({ label, n }) => ({ partner: label, n })),
         byBelt: s.byBelt,
+        situations: positionalStats(app.get().events).goals.map(({ label, rounds, for: got, against }) => ({ situation: label, rounds, got, theyGot: against })),
       };
     },
     techniques() {
