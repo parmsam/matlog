@@ -123,8 +123,8 @@ export function buddySvg(id: BuddyId, belt: Belt, stripes: number, patchColors: 
   const mouthY = id === 'frog' ? 46 : id === 'bear' ? 47 : 47.5;
   const arm = (d: string) => `<path d="${d}" fill="none" stroke="var(--buddy-line)" stroke-width="11" stroke-linecap="round" /><path d="${d}" fill="none" stroke="var(--cloth)" stroke-width="6.6" stroke-linecap="round" />`;
   return `<svg class="buddy" data-buddy="${id}" viewBox="0 0 100 100" role="img" aria-label="Your training buddy, ${c.label}" style="--skin: ${c.skin}; --belt: var(--belt-${belt}); --belt-bar: ${bar}">
+    <ellipse class="shadow" cx="50" cy="96.5" rx="24" ry="2.6" fill="currentColor" opacity="0.1" />
     <g class="rig">
-      <ellipse cx="50" cy="96.5" rx="24" ry="2.6" fill="currentColor" opacity="0.1" />
       ${c.back ?? ''}
       <rect class="body" x="37.5" y="80" width="10" height="13" rx="4" /><rect class="body" x="52.5" y="80" width="10" height="13" rx="4" />
       <ellipse class="skin" cx="42" cy="94" rx="6" ry="3" /><ellipse class="skin" cx="58" cy="94" rx="6" ry="3" />

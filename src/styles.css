@@ -1359,20 +1359,108 @@ kbd {
     transform: translateY(6px);
   }
 }
-.buddy.react-cheer .rig {
-  animation: hop 0.8s var(--ease);
+/* Cheer: crouch, spring up with both arms swinging overhead from the shoulders, land with a squash. */
+.buddy .hand.l {
+  transform-origin: 100% 0%;
 }
-.buddy.react-cheer .hand {
-  animation: up 0.8s var(--ease);
+.buddy .hand.r {
+  transform-origin: 0% 0%;
+}
+.buddy .shadow {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+.buddy.react-cheer .rig {
+  animation: hop 0.9s linear;
+}
+.buddy.react-cheer .hand.l {
+  animation: cheer-l 0.9s linear;
+}
+.buddy.react-cheer .hand.r {
+  animation: cheer-r 0.9s linear;
+}
+.buddy.react-cheer .shadow {
+  animation: hop-shadow 0.9s linear;
 }
 @keyframes hop {
-  40% {
-    transform: translateY(-10px) rotate(-4deg);
+  0% {
+    transform: none;
+    animation-timing-function: cubic-bezier(0.3, 0, 0.6, 1);
+  }
+  16% {
+    transform: scale(1.08, 0.9);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1);
+  }
+  44% {
+    transform: translateY(-12px) scale(0.95, 1.06);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.8, 0.4);
+  }
+  66% {
+    transform: scale(1.07, 0.92);
+    animation-timing-function: cubic-bezier(0.3, 1.5, 0.5, 1);
+  }
+  100% {
+    transform: none;
   }
 }
-@keyframes up {
+@keyframes hop-shadow {
+  0%,
+  66%,
+  100% {
+    transform: none;
+  }
+  16% {
+    transform: scaleX(1.08);
+  }
+  44% {
+    transform: scaleX(0.7);
+    opacity: 0.05;
+  }
+}
+@keyframes cheer-l {
+  0%,
+  100% {
+    transform: none;
+    animation-timing-function: cubic-bezier(0.3, 0, 0.6, 1);
+  }
+  16% {
+    transform: rotate(-12deg);
+    animation-timing-function: cubic-bezier(0.2, 1.4, 0.4, 1);
+  }
   40% {
-    transform: translateY(-14px) rotate(-20deg);
+    transform: rotate(125deg);
+    animation-timing-function: ease-in-out;
+  }
+  54% {
+    transform: rotate(110deg);
+    animation-timing-function: ease-in-out;
+  }
+  68% {
+    transform: rotate(125deg);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+@keyframes cheer-r {
+  0%,
+  100% {
+    transform: none;
+    animation-timing-function: cubic-bezier(0.3, 0, 0.6, 1);
+  }
+  16% {
+    transform: rotate(12deg);
+    animation-timing-function: cubic-bezier(0.2, 1.4, 0.4, 1);
+  }
+  40% {
+    transform: rotate(-125deg);
+    animation-timing-function: ease-in-out;
+  }
+  54% {
+    transform: rotate(-110deg);
+    animation-timing-function: ease-in-out;
+  }
+  68% {
+    transform: rotate(-125deg);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 .buddy .mouth.happy {
@@ -1495,6 +1583,16 @@ button.companion {
   padding: 0;
   background: transparent;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+/* A quick squish under the finger before the cheer plays. */
+button.companion .buddy {
+  transform-origin: 50% 96%;
+  transition: transform 0.25s var(--ease);
+}
+button.companion:active .buddy {
+  transform: scale(1.05, 0.93);
+  transition-duration: 0.08s;
 }
 .buddy-says {
   position: absolute;
