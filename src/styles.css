@@ -319,7 +319,7 @@ h3 {
   right: 3px;
   top: 0;
   bottom: 0;
-  width: 12px;
+  width: 14px;
   background: var(--bar, var(--belt-black));
   background-image: repeating-linear-gradient(90deg, transparent 0 1px, #fff 1px 2.5px, transparent 2.5px 3px);
   background-size: var(--stripes-w, 0) 100%;

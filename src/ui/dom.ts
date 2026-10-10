@@ -7,7 +7,7 @@ export const BELT_LABEL: Record<Belt, string> = { white: 'White', blue: 'Blue', 
 /** A small belt swatch with its stripes, as HTML. */
 export function beltSwatch(belt: Belt, stripes = 0): string {
   const bar = belt === 'black' ? 'var(--k-comp)' : 'var(--belt-black)';
-  return `<span class="belt-swatch" style="--sw: var(--belt-${belt}); --bar: ${bar}; --stripes-w: ${stripes * 2.5}px" role="img" aria-label="${BELT_LABEL[belt]} belt${stripes ? `, ${stripes} stripe${stripes === 1 ? '' : 's'}` : ''}"></span>`;
+  return `<span class="belt-swatch" style="--sw: var(--belt-${belt}); --bar: ${bar}; --stripes-w: ${stripes * 3}px" role="img" aria-label="${BELT_LABEL[belt]} belt${stripes ? `, ${stripes} stripe${stripes === 1 ? '' : 's'}` : ''}"></span>`;
 }
 
 export const closeBtn = '<button type="button" class="icon-btn" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>';
