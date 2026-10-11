@@ -158,7 +158,7 @@ test('settings: theme, start belt and buddy', async ({ page }) => {
 test('every buddy draws, and ties its belt on start', async ({ page }) => {
   await open(page);
   for (const id of ['grappler', 'bear', 'sloth', 'octopus', 'frog', 'cat']) {
-    await page.evaluate((id) => localStorage.setItem('matlog:v1:settings', JSON.stringify({ splash: false, companion: id })), id);
+    await page.evaluate((id) => localStorage.setItem('matlog:v1:settings', JSON.stringify({ splash: false, companion: id, cardsLogPast: false, cardsLogPastSet: true })), id);
     await page.reload();
     await expect(page.locator('#companion svg')).toHaveAttribute('data-buddy', id);
   }

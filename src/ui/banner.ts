@@ -17,12 +17,18 @@ export const isStandalone = () => matchMedia('(display-mode: standalone)').match
 
 interface Tip {
   id: string;
-  html: string;
+  html: string | (() => string);
   when?: () => boolean;
 }
 
 export const TIPS: Tip[] = [
-  { id: 'welcome', html: '👋 <b>Tap a card when you bow in</b>, tap it again when you’re done. Hold a card to log one you already did.' },
+  {
+    id: 'welcome',
+    html: () =>
+      settings.get().cardsLogPast
+        ? '👋 <b>Tap a card after class</b> to log it: how long, what you worked on, your rounds. Want a timer instead? Settings → Buttons.'
+        : '👋 <b>Tap a card when you bow in</b>, tap it again when you’re done. Hold a card to log one you already did.',
+  },
   { id: 'install', html: '📲 <b>Add matlog to your Home Screen</b> so iPhone keeps your log: Share → Add to Home Screen.', when: () => isIos() && !isStandalone() },
   { id: 'install-android', html: '📲 <b>Install matlog</b>: ⋮ menu → Add to Home screen. It works offline.', when: () => isAndroid() && !isStandalone() },
   { id: 'focus', html: '🎯 <b>What are you working on?</b> Tap the card up top to set a focus and work it in 1–2 week blocks.' },
@@ -52,7 +58,7 @@ export function showBanner() {
     const tips = dueTips();
     if (tips.length) {
       const t = tips[browsing % tips.length];
-      html = `<span>${t.html}</span><span class="head-actions">${tips.length > 1 ? `<span class="tip-count">${(browsing % tips.length) + 1}/${tips.length}</span><button type="button" class="chip" data-tip-next>Next ›</button>` : ''}<button type="button" class="chip primary" data-tip-ok="${t.id}">Got it</button></span>`;
+      html = `<span>${typeof t.html === 'string' ? t.html : t.html()}</span><span class="head-actions">${tips.length > 1 ? `<span class="tip-count">${(browsing % tips.length) + 1}/${tips.length}</span><button type="button" class="chip" data-tip-next>Next ›</button>` : ''}<button type="button" class="chip primary" data-tip-ok="${t.id}">Got it</button></span>`;
     }
   }
   if (!html) {

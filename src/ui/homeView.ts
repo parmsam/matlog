@@ -159,7 +159,12 @@ export function renderRecent(now: number) {
     list.innerHTML = html;
     lastKey = html;
   }
-  document.getElementById('entries-empty')!.hidden = items.length > 0;
+  const empty = document.getElementById('entries-empty')!;
+  empty.hidden = items.length > 0;
+  if (!items.length) {
+    const text = settings.get().cardsLogPast ? 'Nothing logged yet. Tap <b>Class</b> after class to log it.' : 'Nothing logged yet. Tap <b>Class</b> when you bow in, or hold it to log one you already did.';
+    if (empty.innerHTML !== text) empty.innerHTML = text;
+  }
 
   const r = weekRecap(events, dayKey(now), now);
   const week = r.sessions

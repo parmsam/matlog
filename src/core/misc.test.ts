@@ -46,6 +46,10 @@ describe('settings', () => {
     expect(sanitize({ companion: false as never }).companion).toBe('off');
     expect(sanitize({ companion: 'dragon' as never }).companion).toBe('grappler');
     expect(sanitize({ splash: undefined }).splash).toBe(true);
+    // Cards log past sessions by default; a `false` saved before you could choose follows it.
+    expect(sanitize({}).cardsLogPast).toBe(true);
+    expect(sanitize({ cardsLogPast: false }).cardsLogPast).toBe(true);
+    expect(sanitize({ cardsLogPast: false, cardsLogPastSet: true }).cardsLogPast).toBe(false);
     // Rounds are 5 minutes by default; v0.3's saved 6 moves to 5 unless you chose it.
     expect(sanitize({}).roundMin).toBe(5);
     expect(sanitize({ roundMin: 6 }).roundMin).toBe(5);

@@ -130,6 +130,26 @@ test('tap the buddy for a line', async ({ page }) => {
   await expect(page.locator('#buddy-says')).not.toHaveText(first!);
 });
 
+test('by default a card tap logs a past session, and turning it off in Settings brings timers back', async ({ page }) => {
+  // Settings from before the default changed: false, never chosen.
+  await open(page, { settings: { cardsLogPast: false, cardsLogPastSet: undefined } });
+  await expect(card(page, 'class')).toContainText('tap to log');
+  await expect(page.locator('#entries-empty')).toContainText('after class');
+  await card(page, 'class').click();
+  await expect(page.locator('#sheet')).toBeVisible();
+  await page.locator('#sheet').getByRole('button', { name: 'Cancel' }).click();
+  await expect(card(page, 'class')).not.toHaveClass(/running/);
+
+  await page.keyboard.press(',');
+  await page.locator('#settings [data-cards-past]').uncheck();
+  await page.keyboard.press('Escape');
+  await expect(card(page, 'class')).toContainText('tap to start');
+  await expect(page.locator('#entries-empty')).toContainText('when you bow in');
+  await page.reload();
+  await card(page, 'class').click();
+  await expect(card(page, 'class')).toHaveClass(/running/);
+});
+
 test('cards can log past sessions only: a tap opens a finished entry, a running one still stops', async ({ page }) => {
   const now = Date.now();
   const running = ev('roll', now - 2 * MIN);

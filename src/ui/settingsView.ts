@@ -70,7 +70,7 @@ async function render() {
     <p class="basis">Which cards show on the home screen. Hidden ones still work from links, keys and the API, and show while running.</p>
     <div class="picks">${KINDS.map((k) => `<label class="pick check-pick"><input type="checkbox" data-card-toggle="${k.id}" ${s.hiddenCards.includes(k.id) ? '' : 'checked'} /> ${k.emoji} ${k.label}</label>`).join('')}</div>
     <label class="check"><input type="checkbox" data-cards-past ${s.cardsLogPast ? 'checked' : ''} /> Cards log past sessions only (no timers)</label>
-    <p class="hint" style="margin-top:2px">A tap opens one you already did, to fill in its time and details. Anything already running still stops with a tap. The round clock, links and the API still time things.</p>
+    <p class="hint" style="margin-top:2px">On by default: a tap opens one you already did, to fill in its time and details. Turn it off to tap to start and stop a timer instead. Anything already running still stops with a tap. The round clock, links and the API still time things.</p>
   </section>
 
   ${
@@ -147,7 +147,7 @@ export function openSettings() {
       return;
     }
     if (el.dataset.cardsPast !== undefined) {
-      settings.set({ cardsLogPast: el.checked });
+      settings.set({ cardsLogPast: el.checked, cardsLogPastSet: true });
       return;
     }
     if (el.dataset.backupEvery !== undefined) {

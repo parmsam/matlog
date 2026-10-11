@@ -244,6 +244,8 @@ export interface Settings {
   classOnHour: boolean;
   /** Cards log one you already did (open a finished entry) instead of starting a timer. */
   cardsLogPast: boolean;
+  /** You set cardsLogPast yourself; until then it follows the default. */
+  cardsLogPastSet?: boolean;
   /** Also a system notification when a reflection comes due (while matlog is open somewhere). */
   reflectNotify: boolean;
 }

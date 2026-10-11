@@ -140,6 +140,7 @@ Checked 2026-10-09 (see the README for the table).
 - [ ] Screenshots in `docs/`.
 
 ## Decisions log
+- 2026-10-11: Cards log past sessions by default (`cardsLogPast: true`): most people log after class, not at the bow-in. `cardsLogPastSet` marks a choice you made; a `false` saved before then (the v0.8.0 default) follows the new default. The welcome tip and the empty Recent text follow the setting. Tests pin timers on in the e2e helper.
 - 2026-10-10: The palette button shows on phones too (its key hints don't). Six top-bar buttons fit by going 38px wide under 440px (still 44px tall), and the word "matlog" hides under 375px; a layout test checks 320–390px.
 - 2026-10-10: Technique library gets Used / All. All lists every technique by type (A to Z) with its log numbers, then typed-in names with no catalog entry, then hidden ones, so the library is browsable and hidden techniques can be found again. The filter in All also matches other names and type.
 - 2026-10-10: v0.9.0. Command palette (Ctrl/⌘K, plus a keyboard-only top-bar button). Commands are built when it opens, so a card reads Start, Stop or Log as a tap would. It runs the same functions as the cards and shortcuts; techniques are listed only once you type. Matching (`core/fuzzy.ts`) wants every word, best as a word start, else letters in order. It won't open over another sheet, since closing that one would lose a draft. Belt swatch stripes are 3px apiece (the 2.5px slot cut the fourth one off).
