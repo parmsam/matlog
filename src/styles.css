@@ -163,6 +163,20 @@ h3 {
   display: flex;
   gap: 2px;
 }
+/* Six buttons and the name on a phone: narrower buttons (still 44px tall), and the name goes on the smallest. */
+@media (max-width: 440px) {
+  .topbar-actions {
+    gap: 0;
+  }
+  .topbar-actions .icon-btn {
+    width: 38px;
+  }
+}
+@media (max-width: 374px) {
+  #brand-name {
+    display: none;
+  }
+}
 .icon-btn {
   display: inline-grid;
   place-items: center;
@@ -1294,6 +1308,12 @@ kbd {
 .palette li kbd {
   flex: none;
   color: var(--muted);
+}
+/* Key hints mean nothing without a keyboard. */
+@media (hover: none) {
+  .palette li kbd {
+    display: none;
+  }
 }
 .palette .pal-empty {
   color: var(--muted);

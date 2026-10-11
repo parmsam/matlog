@@ -68,11 +68,15 @@ test('nothing matching says so, and Enter does nothing', async ({ page }) => {
   await expect(palette(page)).toBeVisible();
 });
 
-test('the palette button opens it too', async ({ page, hasTouch }) => {
-  test.skip(hasTouch, 'keyboard-only buttons are hidden on touch screens');
+test('the palette button opens it too, on phones as well', async ({ page, hasTouch }) => {
   await open(page);
   await page.locator('#palette-open').click();
   await expect(palette(page).getByRole('combobox')).toBeFocused();
+  await page.keyboard.type('reflections');
+  await palette(page).getByRole('option', { name: /Notebook: Reflections/ }).click();
+  await expect(page.locator('#notebook')).toBeVisible();
+  // Key hints are for keyboards; the keyboard-shortcuts button stays desktop-only.
+  if (hasTouch) await expect(page.locator('#shortcuts-open')).toBeHidden();
 });
 
 test('a belt swatch has room for all four stripes', async ({ page }) => {

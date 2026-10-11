@@ -47,3 +47,16 @@ test('the Notebook tabs all fit on a phone', async ({ page }) => {
     expect(await t.evaluate((x) => x.scrollWidth - x.clientWidth)).toBeLessThanOrEqual(1);
   }
 });
+
+test('the top bar fits on small phones, palette button included', async ({ page }) => {
+  for (const width of [320, 360, 375, 390]) {
+    await page.setViewportSize({ width, height: 700 });
+    await open(page);
+    await expect(page.locator('#palette-open')).toBeVisible();
+    const over = await page.locator('.topbar').evaluate((n) => {
+      const bar = n.getBoundingClientRect();
+      return Math.max(...[...n.querySelectorAll('.icon-btn')].filter((b) => (b as HTMLElement).offsetParent).map((b) => b.getBoundingClientRect().right)) - bar.right;
+    });
+    expect(over, `${width}px`).toBeLessThanOrEqual(0);
+  }
+});
